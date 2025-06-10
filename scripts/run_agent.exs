@@ -1,5 +1,3 @@
-# scripts/run_console_agent.exs
-
 # Ensure application and dependencies are started
 Application.ensure_all_started(:logger)
 Application.ensure_all_started(:jason)
@@ -12,11 +10,12 @@ Type '/exit' to quit.
 
 alias NetsukeAgents.{
   BaseAgent,
+  BaseAgentConfig,
   AgentMemory,
   Schemas.BaseIOSchema
 }
 
-# Set up initial memory
+# Set up initial memory with assistant greeting
 initial_memory =
   AgentMemory.new()
   |> AgentMemory.initialize_turn()
@@ -24,14 +23,18 @@ initial_memory =
     AgentMemory.add_message(mem, "assistant", %BaseIOSchema{chat_message: "Hello! How can I assist you today?"})
   end)
 
-# Initialize the agent with memory
-agent = %BaseAgent{
-  id: "console-agent",
+# Create config for the agent
+config = %BaseAgentConfig{
+  model: "gpt-4",
   memory: initial_memory,
   system_role: "system",
-  model: "mock-model",
-  model_params: %{}
+  input_schema: BaseIOSchema,
+  output_schema: BaseIOSchema,
+  model_api_parameters: %{}
 }
+
+# Initialize the agent
+agent = BaseAgent.new("console-agent", config)
 
 # Show initial system prompt and message
 IO.puts("📝 System Prompt: [mocked]")
@@ -48,9 +51,6 @@ loop = fn loop, agent ->
     {updated_agent, response} = BaseAgent.run(agent, input)
 
     IO.puts("🧠 Agent: #{response.chat_message}")
-    # IO.puts("📝 Memory:")
-    # IO.puts(BaseAgent.get_memory_string(updated_agent))
-
     loop.(loop, updated_agent)
   end
 end
