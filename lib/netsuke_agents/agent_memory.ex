@@ -126,4 +126,17 @@ defmodule NetsukeAgents.AgentMemory do
 
     %__MODULE__{memory | history: filtered, current_turn_id: new_turn_id}
   end
+
+  @doc """
+  Creates a copy of the chat memory.
+
+  Returns:
+      AgentMemory: A copy of the chat memory.
+  """
+  def copy(%__MODULE__{} = memory) do
+    memory
+    |> dump()
+    |> load()
+    |> Map.put(:current_turn_id, memory.current_turn_id)
+  end
 end
