@@ -12,6 +12,8 @@ defmodule NetsukeAgents.BaseAgent do
     :memory,
     :initial_memory,
     :current_user_input,
+    :input_schema,
+    :output_schema,
     config: BaseAgentConfig
   ]
 
@@ -21,6 +23,8 @@ defmodule NetsukeAgents.BaseAgent do
           memory: AgentMemory.t(),
           initial_memory: AgentMemory.t(),
           current_user_input: map() | nil,
+          input_schema: map(),
+          output_schema: map(),
           client: any() | nil # TODO: nullable for now
         }
 
@@ -34,6 +38,8 @@ defmodule NetsukeAgents.BaseAgent do
       memory: memory,
       initial_memory: memory,
       current_user_input: nil,
+      input_schema: config.input_schema,
+      output_schema: config.output_schema,
       client: nil
     }
   end
@@ -63,7 +69,6 @@ defmodule NetsukeAgents.BaseAgent do
   """
   @spec run(t(), map()) :: {t(), map()}
   def run(%__MODULE__{} = agent, input) do
-    # Initialize baseAgent with BaseAgentConfig
     memory =
       agent.memory
       |> AgentMemory.initialize_turn()

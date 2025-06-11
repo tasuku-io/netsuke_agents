@@ -21,14 +21,17 @@ initial_memory =
     AgentMemory.add_message(mem, "assistant", %{chat_message: "Hello! How can I assist you today?"})
   end)
 
+IO.inspect(initial_memory, label: "Initial Memory")
+
 # Create config for the agent
-config = %BaseAgentConfig{
-  memory: initial_memory
-}
+config = BaseAgentConfig.new([
+  memory: initial_memory,
+  input_schema: %{chat_message: :string}
+])
 
 # Initialize the agent
 agent = BaseAgent.new("console-agent", config)
-IO.inspect(agent.memory, label: "Initialized Agent memory")
+IO.inspect(agent.config.input_schema, label: "Initialized Agent input schema")
 
 # Show initial system prompt and message
 IO.puts("📝 System Prompt: [mocked]")
@@ -43,7 +46,6 @@ loop = fn loop, agent ->
   else
     input = %{chat_message: user_input}
     {updated_agent, response} = BaseAgent.run(agent, input)
-    IO.inspect(updated_agent.memory, label: "Updated Agent memory")
 
     IO.puts("🧠 Agent: #{response.reply}")
     loop.(loop, updated_agent)
