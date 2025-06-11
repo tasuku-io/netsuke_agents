@@ -4,16 +4,16 @@ defmodule NetsukeAgents.BaseAgentConfig do
   """
 
   alias NetsukeAgents.AgentMemory
-  alias NetsukeAgents.Schemas.BaseIOSchema
+  alias NetsukeAgents.Schemas.{BaseAgentInputSchema, BaseAgentOutputSchema}
 
   defstruct [
     :client,
     model: "gpt-4o-mini",
-    memory: nil,
+    memory: AgentMemory.new(), # Default memory, can be overridden
     # system_prompt_generator: nil, # TODO: Implement system prompt generator
     system_role: "system",
-    input_schema: BaseIOSchema,
-    output_schema: BaseIOSchema,
+    input_schema: BaseAgentInputSchema,
+    output_schema: BaseAgentOutputSchema,
     model_api_parameters: nil
   ]
 

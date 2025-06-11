@@ -11,30 +11,24 @@ Type '/exit' to quit.
 alias NetsukeAgents.{
   BaseAgent,
   BaseAgentConfig,
-  AgentMemory,
-  Schemas.BaseIOSchema
+  AgentMemory
 }
 
 # Set up initial memory with assistant greeting
 initial_memory =
   AgentMemory.new()
-  |> AgentMemory.initialize_turn()
   |> then(fn mem ->
-    AgentMemory.add_message(mem, "assistant", %BaseIOSchema{chat_message: "Hello! How can I assist you today?"})
+    AgentMemory.add_message(mem, "assistant", %{chat_message: "Hello! How can I assist you today?"})
   end)
 
 # Create config for the agent
 config = %BaseAgentConfig{
-  model: "gpt-4",
-  memory: initial_memory,
-  system_role: "system",
-  input_schema: BaseIOSchema,
-  output_schema: BaseIOSchema,
-  model_api_parameters: %{}
+  memory: initial_memory
 }
 
 # Initialize the agent
 agent = BaseAgent.new("console-agent", config)
+IO.inspect(agent.memory, label: "Initialized Agent memory")
 
 # Show initial system prompt and message
 IO.puts("📝 System Prompt: [mocked]")
@@ -47,10 +41,11 @@ loop = fn loop, agent ->
   if user_input in ["/exit", "/quit"] do
     IO.puts("Exiting chat...")
   else
-    input = %BaseIOSchema{chat_message: user_input}
+    input = %{chat_message: user_input}
     {updated_agent, response} = BaseAgent.run(agent, input)
+    IO.inspect(updated_agent.memory, label: "Updated Agent memory")
 
-    IO.puts("🧠 Agent: #{response.chat_message}")
+    IO.puts("🧠 Agent: #{response.reply}")
     loop.(loop, updated_agent)
   end
 end
