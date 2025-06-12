@@ -2,7 +2,6 @@ defmodule NetsukeAgents.BaseAgentConfig do
   @moduledoc """
   Configuration struct for initializing a BaseAgent.
   """
-  use TypeCheck
 
   alias NetsukeAgents.{AgentMemory, BaseIOSchema}
 
@@ -33,7 +32,7 @@ defmodule NetsukeAgents.BaseAgentConfig do
     model_api_parameters: nil
   ]
 
-  @type! t :: %__MODULE__{
+  @type t :: %__MODULE__{
           client: any(), # Replace with actual client type later
           model: String.t(),
           memory: AgentMemory.t() | nil,
@@ -58,7 +57,7 @@ defmodule NetsukeAgents.BaseAgentConfig do
       iex> BaseAgentConfig.new(model: 123)
       ** (TypeCheck.TypeError) ...
   """
-  @spec! new(attrs :: keyword()) :: t()
+  @spec new(attrs :: keyword()) :: t()
   def new(attrs \\ []) do
     struct(__MODULE__, attrs)
   end

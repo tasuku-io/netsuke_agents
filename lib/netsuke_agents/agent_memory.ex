@@ -3,11 +3,9 @@ defmodule NetsukeAgents.AgentMessage do
   Represents a message in the agent's memory, including role, content, and turn ID.
   """
 
-  use TypeCheck
-
   defstruct [:role, :content, :turn_id]
 
-  @type! t :: %__MODULE__{
+  @type t :: %__MODULE__{
           role: String.t(),
           content: map(),
           turn_id: String.t() | nil
@@ -20,14 +18,12 @@ defmodule NetsukeAgents.AgentMemory do
   Includes serialization and turn-based message deletion.
   """
 
-  use TypeCheck
-
   alias NetsukeAgents.AgentMessage
   require Logger
 
   defstruct history: [], max_messages: nil, current_turn_id: nil
 
-  @type! t :: %__MODULE__{
+  @type t :: %__MODULE__{
           history: list(AgentMessage.t()),
           max_messages: integer() | nil,
           current_turn_id: String.t() | nil
