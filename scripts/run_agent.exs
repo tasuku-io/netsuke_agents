@@ -28,17 +28,14 @@ IO.inspect(initial_memory, label: "Initial Memory")
 config = BaseAgentConfig.new([
   memory: initial_memory,
   input_schema: BaseIOSchema.new(
-        definition: %{
-          other_field: %{
-            type: :string,
-            description: "The text content of the user's chat message."
-          },
-          second_field: %{
-            type: :string,
-            description: "The text content of the user's chat message."
-          }
-        }
-      )
+    definition: %{
+      some_message: %{
+        type: :string, # Use :string atom
+        is_required: true,
+        description: "The text content of the user's chat message."
+      }
+    }
+  ),
 ])
 
 # Initialize the agent
@@ -56,7 +53,7 @@ loop = fn loop, agent ->
   if user_input in ["/exit", "/quit"] do
     IO.puts("Exiting chat...")
   else
-    input = %{chat_message: user_input} # Validate against input schema
+    input = %{some_message: user_input} # Validate against input schema
     {updated_agent, response} = BaseAgent.run(agent, input)
 
     IO.puts("🧠 Agent: #{response.reply}")
