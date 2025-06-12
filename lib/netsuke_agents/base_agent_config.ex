@@ -4,7 +4,7 @@ defmodule NetsukeAgents.BaseAgentConfig do
   """
   use TypeCheck
 
-  alias NetsukeAgents.AgentMemory
+  alias NetsukeAgents.{AgentMemory, BaseIOSchema}
 
   defstruct [
     :client,
@@ -12,8 +12,24 @@ defmodule NetsukeAgents.BaseAgentConfig do
     memory: AgentMemory.new(), # Default memory, can be overridden
     # system_prompt_generator: nil, # TODO: Implement system prompt generator
     system_role: "system",
-    input_schema: %{chat_message: :string},
-    output_schema: %{reply: :string},
+    input_schema: BaseIOSchema.new(
+        definition: %{
+          chat_message: %{
+            type: :string,
+            is_required: true,
+            description: "The text content of the user's chat message."
+          }
+        }
+      ),
+    output_schema: BaseIOSchema.new(
+        definition: %{
+          reply: %{
+            type: :string,
+            is_required: true,
+            description: "The text content of the agent's reply."
+          }
+        }
+      ),
     model_api_parameters: nil
   ]
 
@@ -22,8 +38,8 @@ defmodule NetsukeAgents.BaseAgentConfig do
           model: String.t(),
           memory: AgentMemory.t() | nil,
           system_role: String.t(),
-          input_schema: map(),
-          output_schema: map(),
+          input_schema: BaseIOSchema.t(),
+          output_schema: BaseIOSchema.t(),
           model_api_parameters: map() | nil
         }
 

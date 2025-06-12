@@ -11,7 +11,8 @@ Type '/exit' to quit.
 alias NetsukeAgents.{
   BaseAgent,
   BaseAgentConfig,
-  AgentMemory
+  AgentMemory,
+  BaseIOSchema
 }
 
 # Set up initial memory with assistant greeting
@@ -26,7 +27,18 @@ IO.inspect(initial_memory, label: "Initial Memory")
 # Create config for the agent
 config = BaseAgentConfig.new([
   memory: initial_memory,
-  input_schema: %{chat_message: :string}
+  input_schema: BaseIOSchema.new(
+        definition: %{
+          other_field: %{
+            type: :string,
+            description: "The text content of the user's chat message."
+          },
+          second_field: %{
+            type: :string,
+            description: "The text content of the user's chat message."
+          }
+        }
+      )
 ])
 
 # Initialize the agent
@@ -44,7 +56,7 @@ loop = fn loop, agent ->
   if user_input in ["/exit", "/quit"] do
     IO.puts("Exiting chat...")
   else
-    input = %{chat_message: user_input}
+    input = %{chat_message: user_input} # Validate against input schema
     {updated_agent, response} = BaseAgent.run(agent, input)
 
     IO.puts("🧠 Agent: #{response.reply}")
