@@ -46,16 +46,15 @@ defmodule NetsukeAgents.BaseAgentConfig do
   """
 
   alias NetsukeAgents.AgentMemory
-  # We'll create these schema modules next
-
   alias NetsukeAgents.DefaultInputSchema
   alias NetsukeAgents.DefaultOutputSchema
+  alias NetsukeAgents.Factories.SchemaFactory
 
   defstruct [
     :client,
     :system_prompt,
     model: "gpt-4o-mini",
-    memory: AgentMemory.new(), # Default memory, can be overridden
+    memory: AgentMemory.new(),
     system_role: "system",
     input_schema: DefaultInputSchema,
     output_schema: DefaultOutputSchema,
@@ -68,21 +67,49 @@ defmodule NetsukeAgents.BaseAgentConfig do
           memory: AgentMemory.t() | nil,
           system_role: String.t(),
           system_prompt: String.t() | nil,
-          input_schema: module(),  # Changed from BaseIOSchema.t() to module()
-          output_schema: module(),  # Changed from BaseIOSchema.t() to module()
+          input_schema: module(),
+          output_schema: module(),
           model_api_parameters: map() | nil
         }
 
   @doc """
   Creates a new `BaseAgentConfig` struct from the given attributes.
 
+  If input_schema or output_schema are provided as maps, they will be converted
+  to dynamic Ecto schemas using SchemaFactory.
+
   ## Examples
 
-      iex> BaseAgentConfig.new(client: some_client_module)
-      %BaseAgentConfig{client: some_client_module, model: "gpt-4o-mini", ...}
+      iex> BaseAgentConfig.new(output_schema: %{ingredients: :list, steps: :list})
+      %BaseAgentConfig{output_schema: DynamicSchema_ingredients_steps, ...}
+
+      iex> BaseAgentConfig.new(input_schema: %{query: :string, options: :map})
+      %BaseAgentConfig{input_schema: DynamicSchema_options_query, ...}
   """
   @spec new(attrs :: keyword()) :: t()
   def new(attrs \\ []) do
+    # Process output_schema
+    attrs = Keyword.update(attrs, :output_schema, DefaultOutputSchema, fn schema ->
+      case schema do
+        %{} = map when map_size(map) > 0 ->
+          dynamic_schema = SchemaFactory.create_schema(map)
+          dynamic_schema
+        _ ->
+          schema
+      end
+    end)
+
+    # Process input_schema
+    attrs = Keyword.update(attrs, :input_schema, DefaultInputSchema, fn schema ->
+      case schema do
+        %{} = map when map_size(map) > 0 ->
+          dynamic_schema = SchemaFactory.create_schema(map)
+          dynamic_schema
+        _ ->
+          schema
+      end
+    end)
+
     struct(__MODULE__, attrs)
   end
 end
