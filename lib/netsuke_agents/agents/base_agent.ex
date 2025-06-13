@@ -3,7 +3,7 @@ defmodule NetsukeAgents.BaseAgent do
   A base agent that provides the core functionality for handling chat interactions.
   """
 
-  import Ecto.Changeset
+  # import Ecto.Changeset
 
   alias NetsukeAgents.{BaseAgentConfig, AgentMemory}
 
@@ -24,8 +24,8 @@ defmodule NetsukeAgents.BaseAgent do
           memory: AgentMemory.t(),
           initial_memory: AgentMemory.t(),
           current_user_input: map() | nil,
-          input_schema: module(),  # Changed from BaseIOSchema.t() to module()
-          output_schema: module(),  # Changed from BaseIOSchema.t() to module()
+          input_schema: module(),
+          output_schema: module(),
           client: any() | nil # TODO: nullable for now
         }
 
@@ -53,8 +53,21 @@ defmodule NetsukeAgents.BaseAgent do
     %{agent | memory: AgentMemory.copy(agent.initial_memory)}
   end
 
-  defp simplify_content(%{reply: reply}) when is_binary(reply), do: reply
-  defp simplify_content(%{chat_message: msg}) when is_binary(msg), do: msg
+  defp simplify_content(content) do
+    try do
+      # Convert struct to plain map to avoid Jason encoding issues with structs
+      content_for_json = case content do
+        %{__struct__: _} -> Map.from_struct(content)
+        map when is_map(map) -> map
+        other -> other
+      end
+
+      Jason.encode!(content_for_json, pretty: true)
+    rescue
+      # Fall back to inspect if JSON encoding fails
+      _ -> inspect(content, pretty: true, limit: :infinity)
+    end
+  end
 
   @doc """
   Obtains a response from the language model synchronously using Instructor.
@@ -81,9 +94,6 @@ defmodule NetsukeAgents.BaseAgent do
       model: agent.config.model,
       response_model: agent.output_schema, # TODO: Unless we pass a custom output_schema
       messages: messages #TODO: construct the content with system_prompt_generator
-      # messages: [
-      #   %AgentMessage{role: "system", content: "Hello"}
-      # ]
     )
   end
 
@@ -96,8 +106,6 @@ defmodule NetsukeAgents.BaseAgent do
     # Validate input against schema
     # validate_input_against_schema!(input, agent.input_schema)
 
-    IO.inspect("agent id: #{agent.id}", label: "Agent ID")
-
     memory =
       agent.memory
       |> AgentMemory.initialize_turn()
@@ -109,7 +117,6 @@ defmodule NetsukeAgents.BaseAgent do
       {:ok, response} ->
         final_memory = AgentMemory.add_message(agent_with_user_message.memory, "assistant", response)
         updated_agent = %{agent_with_user_message | memory: final_memory}
-        IO.inspect(final_memory, label: "Final Memory")
         {:ok, updated_agent, response}  # Return the updated agent
 
       {:error, error_reason} ->
@@ -117,40 +124,40 @@ defmodule NetsukeAgents.BaseAgent do
     end
   end
 
-  defp validate_input_against_schema!(input, schema_module) when is_map(input) do
-    # Create a changeset using the schema module
-    changeset =
-      struct(schema_module)
-      |> schema_module.validate_changeset(input)
+  # defp validate_input_against_schema!(input, schema_module) when is_map(input) do
+  #   # Create a changeset using the schema module
+  #   changeset =
+  #     struct(schema_module)
+  #     |> schema_module.validate_changeset(input)
 
-    # If the changeset has errors, raise them in a user-friendly format
-    if changeset.valid? do
-      :ok
-    else
-      error_messages = format_changeset_errors(changeset)
-      raise ArgumentError, "Input validation failed: #{error_messages}"
-    end
-  end
+  #   # If the changeset has errors, raise them in a user-friendly format
+  #   if changeset.valid? do
+  #     :ok
+  #   else
+  #     error_messages = format_changeset_errors(changeset)
+  #     raise ArgumentError, "Input validation failed: #{error_messages}"
+  #   end
+  # end
 
-  # Format changeset errors into a readable string
-  defp format_changeset_errors(changeset) do
-    errors = traverse_errors(changeset, fn {msg, opts} ->
-      Enum.reduce(opts, msg, fn {key, value}, acc ->
-        String.replace(acc, "%{#{key}}", to_string(value))
-      end)
-    end)
+  # # Format changeset errors into a readable string
+  # defp format_changeset_errors(changeset) do
+  #   errors = traverse_errors(changeset, fn {msg, opts} ->
+  #     Enum.reduce(opts, msg, fn {key, value}, acc ->
+  #       String.replace(acc, "%{#{key}}", to_string(value))
+  #     end)
+  #   end)
 
-    # Convert errors to string with more detail
-    errors
-    |> Enum.map_join("; ", fn {k, v} ->
-      if k == :base do
-        # Handle base errors (like our unknown fields error)
-        Enum.join(v, "; ")
-      else
-        # Show field name and all error messages for that field
-        errors_description = Enum.join(v, ", ")
-        "#{k}: #{errors_description}"
-      end
-    end)
-  end
+  #   # Convert errors to string with more detail
+  #   errors
+  #   |> Enum.map_join("; ", fn {k, v} ->
+  #     if k == :base do
+  #       # Handle base errors (like our unknown fields error)
+  #       Enum.join(v, "; ")
+  #     else
+  #       # Show field name and all error messages for that field
+  #       errors_description = Enum.join(v, ", ")
+  #       "#{k}: #{errors_description}"
+  #     end
+  #   end)
+  # end
 end
