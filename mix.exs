@@ -27,7 +27,9 @@ defmodule NetsukeAgents.MixProject do
       {:ecto_sql, "~> 3.10"},
       {:postgrex, ">= 0.0.0"},
       {:jason, "~> 1.4"},
-      {:uuid, "~> 1.0"}
+      {:uuid, "~> 1.0"},
+      {:instructor, "~> 0.1.0"},
+      {:dotenvy, "~> 1.0.0"}
     ]
   end
 end

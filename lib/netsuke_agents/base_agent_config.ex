@@ -1,35 +1,65 @@
+defmodule NetsukeAgents.DefaultInputSchema do
+  use Ecto.Schema
+  use Instructor
+  import Ecto.Changeset
+
+  @llm_doc """
+  Schema for handling input messages to the agent.
+  """
+
+  @primary_key false
+  embedded_schema do
+    field :chat_message, :string
+  end
+
+  @impl true
+  def validate_changeset(changeset) do
+    changeset
+    |> validate_required([:chat_message])
+  end
+end
+
+defmodule NetsukeAgents.DefaultOutputSchema do
+  use Ecto.Schema
+  use Instructor
+  import Ecto.Changeset
+
+  @llm_doc """
+  Schema for handling output responses from the agent.
+  """
+
+  @primary_key false
+  embedded_schema do
+    field :reply, :string
+  end
+
+  @impl true
+  def validate_changeset(changeset) do
+    changeset
+    |> validate_required([:reply])
+  end
+end
+
 defmodule NetsukeAgents.BaseAgentConfig do
   @moduledoc """
   Configuration struct for initializing a BaseAgent.
   """
 
-  alias NetsukeAgents.{AgentMemory, BaseIOSchema}
+  alias NetsukeAgents.AgentMemory
+  # We'll create these schema modules next
+
+  alias NetsukeAgents.DefaultInputSchema
+  alias NetsukeAgents.DefaultOutputSchema
 
   defstruct [
     :client,
+    :system_prompt,
     model: "gpt-4o-mini",
     memory: AgentMemory.new(), # Default memory, can be overridden
-    # system_prompt_generator: nil, # TODO: Implement system prompt generator
     system_role: "system",
-    input_schema: BaseIOSchema.new(
-        definition: %{
-          chat_message: %{
-            type: :string,
-            is_required: true,
-            description: "The text content of the user's chat message."
-          }
-        }
-      ),
-    output_schema: BaseIOSchema.new(
-        definition: %{
-          reply: %{
-            type: :string,
-            is_required: true,
-            description: "The text content of the agent's reply."
-          }
-        }
-      ),
-    model_api_parameters: nil
+    input_schema: DefaultInputSchema,
+    output_schema: DefaultOutputSchema,
+    model_api_parameters: %{temperature: 0.7}
   ]
 
   @type t :: %__MODULE__{
@@ -37,25 +67,19 @@ defmodule NetsukeAgents.BaseAgentConfig do
           model: String.t(),
           memory: AgentMemory.t() | nil,
           system_role: String.t(),
-          input_schema: BaseIOSchema.t(),
-          output_schema: BaseIOSchema.t(),
+          system_prompt: String.t() | nil,
+          input_schema: module(),  # Changed from BaseIOSchema.t() to module()
+          output_schema: module(),  # Changed from BaseIOSchema.t() to module()
           model_api_parameters: map() | nil
         }
 
   @doc """
   Creates a new `BaseAgentConfig` struct from the given attributes.
 
-  Field types are validated at runtime by TypeCheck against the `t()` specification.
-  It merges the provided `attrs` with the default values defined in the struct.
-  If any field does not conform to its specified type, a `TypeCheck.TypeError` is raised.
-
   ## Examples
 
       iex> BaseAgentConfig.new(client: some_client_module)
       %BaseAgentConfig{client: some_client_module, model: "gpt-4o-mini", ...}
-
-      iex> BaseAgentConfig.new(model: 123)
-      ** (TypeCheck.TypeError) ...
   """
   @spec new(attrs :: keyword()) :: t()
   def new(attrs \\ []) do

@@ -7,7 +7,7 @@ defmodule NetsukeAgents.AgentMessage do
 
   @type t :: %__MODULE__{
           role: String.t(),
-          content: map(),
+          content: map(), # in atomic_agentsm this is a BaseIOSchema
           turn_id: String.t() | nil
         }
 end
@@ -76,7 +76,7 @@ defmodule NetsukeAgents.AgentMemory do
   """
   def get_history(%__MODULE__{} = memory) do
     Enum.map(memory.history, fn %AgentMessage{role: role, content: content} ->
-      %{role: role, content: Jason.encode!(content)}
+      %{role: role, content: content}
     end)
   end
 

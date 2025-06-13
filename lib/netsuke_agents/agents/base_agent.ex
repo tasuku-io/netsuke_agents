@@ -5,7 +5,7 @@ defmodule NetsukeAgents.BaseAgent do
 
   import Ecto.Changeset
 
-  alias NetsukeAgents.{BaseAgentConfig, AgentMemory, BaseIOSchema}
+  alias NetsukeAgents.{BaseAgentConfig, AgentMemory}
 
   defstruct [
     :id,
@@ -24,8 +24,8 @@ defmodule NetsukeAgents.BaseAgent do
           memory: AgentMemory.t(),
           initial_memory: AgentMemory.t(),
           current_user_input: map() | nil,
-          input_schema: BaseIOSchema.t(),
-          output_schema: BaseIOSchema.t(),
+          input_schema: module(),  # Changed from BaseIOSchema.t() to module()
+          output_schema: module(),  # Changed from BaseIOSchema.t() to module()
           client: any() | nil # TODO: nullable for now
         }
 
@@ -53,90 +53,82 @@ defmodule NetsukeAgents.BaseAgent do
     %{agent | memory: AgentMemory.copy(agent.initial_memory)}
   end
 
+  defp simplify_content(%{reply: reply}) when is_binary(reply), do: reply
+  defp simplify_content(%{chat_message: msg}) when is_binary(msg), do: msg
+
   @doc """
-  Obtains a response from the language model synchronously.
+  Obtains a response from the language model synchronously using Instructor.
+
+  The agent's `output_schema` field is expected to be an Ecto schema module.
+  The agent's `client` field is expected to be an `Instructor.Client` (e.g., `Instructor.Client.OpenAI`).
+  The agent's `config` should contain:
+    - `model`: (string) The name of the language model (e.g., "gpt-3.5-turbo").
+    - `system_prompt`: (string | nil) The system prompt for the agent.
+    - `model_api_parameters`: (map | nil) Additional parameters for the LLM API (e.g., `%{temperature: 0.7}`).
   """
-  @spec get_response(t()) :: {:ok, String.t()} | {:error, any()} # Adjusted return type
+  @spec get_response(t()) :: {:ok, Ecto.Schema.t()} | {:error, any()}
   def get_response(%__MODULE__{} = agent) do
-    _response_model = agent.config.output_schema # This is BaseIOSchema.t()
-    # In a real scenario, you'd use the schema to structure/validate the LLM call
-    {:ok, "This is a mocked response from the model."}
+
+    # TODO: Construct this using System Prompt Generator
+    messages = Enum.map(AgentMemory.get_history(agent.memory), fn message ->
+      %{
+        role: message.role,
+        content: simplify_content(message.content)
+      }
+    end)
+
+    Instructor.chat_completion(
+      model: agent.config.model,
+      response_model: agent.output_schema, # TODO: Unless we pass a custom output_schema
+      messages: messages #TODO: construct the content with system_prompt_generator
+      # messages: [
+      #   %AgentMessage{role: "system", content: "Hello"}
+      # ]
+    )
   end
 
   @doc """
   Runs the chat agent with the given user input synchronously.
   Validates the input against the agent's input_schema.
   """
-  @spec run(t(), map()) :: {t(), map()}
+  @spec run(t(), map()) :: {:ok, t(), map()} | {:error, any()}
   def run(%__MODULE__{} = agent, input) do
     # Validate input against schema
-    validate_input_against_schema!(input, agent.input_schema.definition)
+    # validate_input_against_schema!(input, agent.input_schema)
+
+    IO.inspect("agent id: #{agent.id}", label: "Agent ID")
 
     memory =
       agent.memory
       |> AgentMemory.initialize_turn()
       |> AgentMemory.add_message("user", input)
 
-    agent_with_user_message = %{agent | memory: memory, current_user_input: input}
+      agent_with_user_message = %{agent | memory: memory, current_user_input: input}
 
     case get_response(agent_with_user_message) do
-      {:ok, response_text} ->
-        output = %{reply: response_text} # This should conform to output_schema
-        # TODO: Validate output against agent.output_schema.definition here
-        final_memory = AgentMemory.add_message(agent_with_user_message.memory, "assistant", output)
-        {%{agent_with_user_message | memory: final_memory}, output}
+      {:ok, response} ->
+        final_memory = AgentMemory.add_message(agent_with_user_message.memory, "assistant", response)
+        updated_agent = %{agent_with_user_message | memory: final_memory}
+        IO.inspect(final_memory, label: "Final Memory")
+        {:ok, updated_agent, response}  # Return the updated agent
 
       {:error, error_reason} ->
         raise "Error getting response from model: #{inspect(error_reason)}"
     end
   end
 
-  defp validate_input_against_schema!(input_map, schema_definition) when is_map(input_map) and is_map(schema_definition) do
-    # 1. Build a dynamic schema based on the schema_definition
-    types = create_types_map(schema_definition)
-
-    # 2. Create and validate a changeset
+  defp validate_input_against_schema!(input, schema_module) when is_map(input) do
+    # Create a changeset using the schema module
     changeset =
-      {%{}, types}
-      |> cast(input_map, Map.keys(types))
-      |> validate_required(required_fields(schema_definition))
-      |> apply_specific_type_validations(schema_definition) # Add this line
-      |> validate_no_extra_fields(input_map, schema_definition)
+      struct(schema_module)
+      |> schema_module.validate_changeset(input)
 
-    # 3. If the changeset has errors, raise them in a user-friendly format
+    # If the changeset has errors, raise them in a user-friendly format
     if changeset.valid? do
       :ok
     else
       error_messages = format_changeset_errors(changeset)
       raise ArgumentError, "Input validation failed: #{error_messages}"
-    end
-  end
-
-  # Create a map of field names to their Ecto types
-  defp create_types_map(schema_definition) do
-    Enum.into(schema_definition, %{}, fn {field_name, field_spec} ->
-      ecto_type = BaseIOSchema.convert_schema_type_to_ecto_type(field_spec.type)
-      {field_name, ecto_type}
-    end)
-  end
-
-  # Get list of required fields
-  defp required_fields(schema_definition) do
-    schema_definition
-    |> Enum.filter(fn {_field_name, field_spec} -> field_spec.is_required end)
-    |> Enum.map(fn {field_name, _field_spec} -> field_name end)
-  end
-
-  # Check for extra fields not defined in the schema
-  defp validate_no_extra_fields(changeset, input_map, schema_definition) do
-    schema_keys = Map.keys(schema_definition)
-    input_keys = Map.keys(input_map)
-    extraneous_keys = MapSet.difference(MapSet.new(input_keys), MapSet.new(schema_keys)) |> MapSet.to_list()
-
-    if Enum.empty?(extraneous_keys) do
-      changeset
-    else
-      add_error(changeset, :base, "Unknown field(s): #{inspect(extraneous_keys)}. Allowed fields are: #{inspect(schema_keys)}.")
     end
   end
 
@@ -158,52 +150,6 @@ defmodule NetsukeAgents.BaseAgent do
         # Show field name and all error messages for that field
         errors_description = Enum.join(v, ", ")
         "#{k}: #{errors_description}"
-      end
-    end)
-  end
-
-  # Helper to get a nice type name
-  defp typeof(value) when is_binary(value), do: "string"
-  defp typeof(value) when is_integer(value), do: "integer"
-  defp typeof(value) when is_float(value), do: "float"
-  defp typeof(value) when is_boolean(value), do: "boolean"
-  defp typeof(value) when is_atom(value), do: "atom"
-  defp typeof(value) when is_list(value), do: "list"
-  defp typeof(value) when is_map(value), do: "map"
-  defp typeof(_), do: "unknown"
-
-  defp apply_specific_type_validations(changeset, schema_definition) do
-    # Important: We need to validate against the RAW input values
-    # NOT the already cast values (which might already be marked invalid)
-    raw_input = changeset.params
-
-    Enum.reduce(schema_definition, changeset, fn {field_name, field_spec}, acc_changeset ->
-      # Get the raw value from params
-      raw_value = Map.get(raw_input, to_string(field_name)) || Map.get(raw_input, field_name)
-
-      # Only validate if the field is present in input
-      if raw_value != nil do
-        # Check the type directly instead of using validate_change
-        type_valid = case field_spec.type do
-          :string -> is_binary(raw_value)
-          :integer -> is_integer(raw_value)
-          :boolean -> is_boolean(raw_value)
-          :atom -> is_atom(raw_value)
-          :float -> is_float(raw_value)
-          :list -> is_list(raw_value)
-          :map -> is_map(raw_value)
-          _ -> true # Unknown type, assume valid
-        end
-
-        # Add descriptive error if type is invalid
-        if !type_valid do
-          error_message = "must be a #{field_spec.type}, got #{inspect(raw_value)} (#{typeof(raw_value)})"
-          Ecto.Changeset.add_error(acc_changeset, field_name, error_message)
-        else
-          acc_changeset
-        end
-      else
-        acc_changeset
       end
     end)
   end
