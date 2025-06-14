@@ -135,6 +135,74 @@ agent_config = BaseAgentConfig.new([
 
 ### TODO: Show different levels of configuration
 
+## Using the System Prompt Generator
+
+You can customize how your agent behaves by using the SystemPromptGenerator to inject a structured prompts:
+
+```elixir
+alias NetsukeAgents.Components.SystemPromptGenerator
+
+# Create a custom system prompt generator
+sushi_master_prompt = SystemPromptGenerator.new(
+  background: [
+    "Expert Sushi Master with years of experience in traditional and modern sushi techniques.",
+    "Knowledgeable about various ingredients, preparation methods, and cultural significance of sushi."
+  ],
+  steps: [
+    "Understand the user's query about sushi.",
+    "Provide detailed and accurate information based on the query.",
+    "Use a friendly and informative tone."
+  ],
+  output_instructions: [
+    "Respond with clear and concise information.",
+    "If the query is about a recipe, provide ingredients and steps.",
+    "Always include cultural context when relevant."
+  ]
+)
+
+# Add the system prompt generator to the agent configuration
+sushi_master_config = BaseAgentConfig.new([
+  memory: sushi_master_memory,
+  system_prompt_generator: sushi_master_prompt,
+  output_schema: %{
+    ingredients: :list,
+    steps: :list
+  }
+])
+```
+
+### Context Provider (Not implemented yet)
+
+For more advanced use cases, you can add context providers that dynamically inject information:
+
+```elixir
+defmodule SushiContextProvider do
+  use NetsukeAgents.Components.SystemPromptContextProvider
+  
+  @impl true
+  def get_info do
+    """
+    Common sushi ingredients:
+    - Nori (seaweed)
+    - Wasabi
+    - Soy sauce
+    - Pickled ginger (gari)
+    - Various fish like tuna, salmon, yellowtail
+    """
+  end
+end
+
+# Add the context provider to your prompt generator
+sushi_master_prompt = SystemPromptGenerator.new(
+  # ... other configuration ...
+  context_providers: %{
+    "sushi_ingredients" => %{title: "Common Sushi Ingredients", provider: SushiContextProvider}
+  }
+)
+```
+
+The context will be automatically included in the system prompt used by the agent.
+
 ## Agent Memory
 
 Agents maintain conversation history through their memory system:
