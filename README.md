@@ -1,6 +1,6 @@
 # Netsuke Agents
 
-![Netsuke Agents Logo](assets/images/netsuke_cover.png "Netsuke Agents Cover")
+![Netsuke Agents Logo](assets/images/netsuke_cover.png)
 
 A flexible Elixir library for building, validating, and managing AI agents with structured memory and schema validation.
 
@@ -8,11 +8,11 @@ A flexible Elixir library for building, validating, and managing AI agents with 
 
 Netsuke Agents provides a robust framework for creating and managing agent-based systems in Elixir. It offers:
 
-- **Schema Validation** - Define and validate input/output schemas using Ecto
+- **Schema Validation** - Define and validate input/output schemas
 - **Memory Management** - Track and manage agent conversation history
 - **Flexible Configuration** - Easily configure agents with custom behaviors
 - **Type Safety** - Strong typing with comprehensive validation rules
-- **Event Sourcing** - Full audit trail of agent interactions
+- **Multi-Agent Workflows** - Chain agents together for complex reasoning tasks
 
 ## Installation
 
@@ -26,133 +26,133 @@ def deps do
 end
 ```
 
-## Overview
+## Usage Examples
 
-Creating an Agent
+### Creating an Agent
 
 ```elixir
-alias NetsukeAgents.{BaseAgent, BaseAgentConfig, BaseIOSchema}
+alias NetsukeAgents.{BaseAgent, BaseAgentConfig, AgentMemory}
 
-# Define input/output schemas
-input_schema = BaseIOSchema.new(
-  definition: %{
-    query: %{
-      type: :string,
-      is_required: true,
-      description: "The user's question"
-    }
+# Set up initial memory for an agent
+sushi_master_memory =
+  AgentMemory.new()
+  |> AgentMemory.add_message("assistant", %{
+    reply: "Hello! I am an expert Sushi Master. I can tell you about ingredients, techniques, and recipes."
+  })
+
+# Create config with memory and custom output schema
+sushi_master_config = BaseAgentConfig.new([
+  memory: sushi_master_memory,
+  output_schema: %{
+    ingredients: :list,
+    steps: list
   }
-)
+  ])
+```
 
-output_schema = BaseIOSchema.new(
-  definition: %{
-    reply: %{
-      type: :string,
-      is_required: true,
-      description: "The agent's response"
-    }
-  }
-)
+A dynamic schema module will be generated from the output_schema map of field definitions by `schema_factory.ex`.
 
-# Create agent config
-config = %BaseAgentConfig{
-  input_schema: input_schema,
-  output_schema: output_schema
+```elixir
+# Initialize the agent
+sushi_master = BaseAgent.new("sushi-master-agent", agent_config)
+```
+
+### Running an Agent
+
+```elixir
+# Prepare input for the agent with default input schema
+input = %{chat_message: "How do I make the perfect sushi rice?"}
+
+# Run the agent
+{:ok, updated_agent, response} = BaseAgent.run(sushi_master, input)
+```
+
+```bash
+# IO.inspect(response)
+%:DynamicSchema_ingredients_steps{
+  ingredients: ["short-grain rice", "water", "rice vinegar", "sugar", "salt"],
+  steps: ["Rinse the rice under cold water until the water runs clear.",
+   "Soak the rice in water for 30 minutes, then drain.",
+   "In a rice cooker, combine the rice and water in the ratio of 1:1.1.",
+   "Cook the rice according to the rice cooker's instructions.",
+   "Once cooked, let the rice sit covered for 10 minutes off heat.",
+   "In a separate bowl, mix rice vinegar, sugar, and salt until dissolved.",
+   "Gently fold the vinegar mixture into the rice using a wooden spatula, while fanning the rice to cool it."]
 }
 
-# Initialize agent
-agent = BaseAgent.new("my-agent", config)
 ```
-Running an agent:
+
+### Multi-Agent Workflow Example
+
+Create a chain of agents that process information sequentially:
 
 ```elixir
-input = %{query: "What's the weather like today?"}
+# Process with first agent
+input_for_sushi_master = %{chat_message: "How do I make the perfect sushi rice?"}
+{:ok, updated_sushi_master, sushi_master_response} = BaseAgent.run(sushi_master, input_for_sushi_master)
 
-{updated_agent, output} = BaseAgent.run(agent, input)
-IO.puts("Agent replied: #{output.reply}")
+# Set up initial memory for Food Critic
+food_critic_memory =
+  AgentMemory.new()
+  |> AgentMemory.add_message("assistant", %{
+    reply: "I am a Food Critic. I will concisely evaluate the accuracy from a provided recipie."
+  })
+
+# Create config with memory and both custom output schema and input schema
+critic_config = BaseAgentConfig.new([
+  memory: food_critic_memory,
+  input_schema: %{ingredients: :list, steps: :list},
+  output_schema: %{recipie_evaluation: :string}
+])
+
+# Initialize Food Critic agent
+food_critic = BaseAgent.new("food-critic-agent", critic_config)
+
+# Pass the structured output to second agent
+{:ok, updated_food_critic, final_response} = BaseAgent.run(food_critic, sushi_master_response)
 ```
 
-## Schema Definition
+```bash
+# IO.inspect(final_response)
+%:DynamicSchema_recipie_evaluation{
+  recipie_evaluation: "The provided recipe for sushi rice is accurate and follows essential steps for preparing the rice properly. Rinsing the rice, soaking it, and cooking it using the correct water ratio ensures the right texture. The mixing of vinegar, sugar, and salt adds flavor, which is essential for sushi rice. Overall, the recipe is clear and well-structured."
+}
+```
 
-Netsuke Agents uses a schema-first approach for defining agent interactions:
+## Agent Configuration
+
+Configure your agents with schemas for validation and structured responses:
+
+### Simplest Configuration (WIP)
 
 ```elixir
-schema = BaseIOSchema.new(
-  definition: %{
-    field_name: %{
-      type: :string,        # Type (:string, :integer, :boolean, :float, :list, :map, :atom)
-      is_required: true,    # Whether the field is required
-      description: "Field description",  # Human-readable description
-      value: "Example"      # Optional default/example value
-    }
-  }
-)
+agent_config = BaseAgentConfig.new([
+  background: some_background_string,
+  steps: some_steps_string,
+  output_instructions: some_output_instructions_string
+])
 ```
+
+### TODO: Show different levels of configuration
 
 ## Agent Memory
 
 Agents maintain conversation history through their memory system:
 
 ```elixir
-# Access agent's conversation history
-memory = agent.memory
+# Create new memory
+memory = AgentMemory.new()
 
-# Reset memory to initial state
-fresh_agent = BaseAgent.reset_memory(agent)
+# Add messages to memory
+memory = memory |> AgentMemory.add_message("user", %{content: "Hello"})
+memory = memory |> AgentMemory.add_message("assistant", %{content: "Hi there!"})
+
+# Dump memory
+...
+
+# Load memory
+...
 ```
-
-## Configuration
-
-Customize your agent's behavior through the `BaseAgentConfig` struct:
-
-```elixir
-config = %BaseAgentConfig{
-  input_schema: input_schema,
-  output_schema: output_schema,
-  memory: AgentMemory.new(),  # Optional custom initial memory
-  client: YourClient.new()    # Optional custom client implementation
-}
-```
-
-## Event Sourcing
-
-Netsuke Agents implements an event sourcing pattern for comprehensive auditing and state management:
-
-```elixir
-# Start a managed agent server (handles event logging automatically)
-{:ok, _pid} = NetsukeAgents.AgentServer.start_link("agent-123")
-
-# Run the agent through the server
-output = NetsukeAgents.AgentServer.run("agent-123", %{chat_message: "Hello!"})
-```
-
-### Event Types
-
-Every agent interaction is logged as an event:
-
-- input_received - Records user inputs
-- response_generated - Records agent responses
-
-Benefits
-
-- **Audit Trail** - Complete history of all agent interactions
-- **Replay Capability** - Rebuild agent state from event history
-- **Analysis** - Extract insights from historical agent behavior
-- **Debugging** - Trace issues through the sequence of events
-
-Querying Events
-
-```elixir
-# Example: Retrieve all events for a specific agent
-events = NetsukeAgents.AgentEvent
-  |> where([e], e.agent_id == ^agent_id)
-  |> order_by([e], e.inserted_at)
-  |> NetsukeAgents.Repo.all()
-```
-
-## Advanced Usage
-
-More detailed examples and advanced usage patterns will be added as the library matures.
 
 ## Documentation
 
@@ -163,7 +163,9 @@ mix docs
 ```
 
 ## License
+
 This project is licensed under the MIT License—see the [LICENSE](LICENSE) file for details.
 
 ## Contributing
+
 Contributions are welcome! Please feel free to submit a Pull Request.
