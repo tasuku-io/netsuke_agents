@@ -6,6 +6,7 @@ defmodule NetsukeAgents.BaseAgent do
   # import Ecto.Changeset
 
   alias NetsukeAgents.{BaseAgentConfig, AgentMemory}
+  alias NetsukeAgents.Components.SystemPromptGenerator
 
   defstruct [
     :id,
@@ -82,8 +83,17 @@ defmodule NetsukeAgents.BaseAgent do
   @spec get_response(t()) :: {:ok, Ecto.Schema.t()} | {:error, any()}
   def get_response(%__MODULE__{} = agent) do
 
+    system_prompt = [
+      %{
+        role: agent.config.system_role,
+        content: SystemPromptGenerator.generate_system_prompt(agent)
+      }
+    ]
+
+    IO.inspect(system_prompt, label: "System Prompt")
+
     # TODO: Construct this using System Prompt Generator
-    messages = Enum.map(AgentMemory.get_history(agent.memory), fn message ->
+    messages = system_prompt ++ Enum.map(AgentMemory.get_history(agent.memory), fn message ->
       %{
         role: message.role,
         content: simplify_content(message.content)
@@ -92,7 +102,7 @@ defmodule NetsukeAgents.BaseAgent do
 
     Instructor.chat_completion(
       model: agent.config.model,
-      response_model: agent.output_schema, # TODO: Unless we pass a custom output_schema
+      response_model: agent.output_schema,
       messages: messages #TODO: construct the content with system_prompt_generator
     )
   end

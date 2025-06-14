@@ -18,8 +18,6 @@ initial_memory =
     AgentMemory.add_message(mem, "assistant", %{reply: "Hello! I am an expert Sushi Master. How can I assist you today?"})
   end)
 
-IO.inspect(initial_memory, label: "Initial Memory")
-
 # Create config for the agent
 config = BaseAgentConfig.new([
   memory: initial_memory,
@@ -42,8 +40,9 @@ loop = fn loop, agent ->
   else
     input = %{chat_message: user_input} # Validate against input schema
     {:ok, updated_agent, response} = BaseAgent.run(agent, input)
+    IO.inspect(updated_agent.memory, label: "Memory")
 
-    IO.inspect(response)
+    IO.puts("🤖 Agent: #{response.reply}")
     loop.(loop, updated_agent)
   end
 end

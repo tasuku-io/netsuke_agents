@@ -45,7 +45,7 @@ sushi_master_config = BaseAgentConfig.new([
   memory: sushi_master_memory,
   output_schema: %{
     ingredients: :list,
-    steps: list
+    steps: :list
   }
   ])
 ```
