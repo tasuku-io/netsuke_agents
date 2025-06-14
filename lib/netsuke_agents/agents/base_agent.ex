@@ -16,7 +16,8 @@ defmodule NetsukeAgents.BaseAgent do
     :current_user_input,
     :input_schema,
     :output_schema,
-    :config
+    :config,
+    :system_prompt_generator
   ]
 
   @type t :: %__MODULE__{
@@ -27,7 +28,8 @@ defmodule NetsukeAgents.BaseAgent do
           current_user_input: map() | nil,
           input_schema: module(),
           output_schema: module(),
-          client: any() | nil # TODO: nullable for now
+          client: any() | nil, # TODO: nullable for now
+          system_prompt_generator: SystemPromptGenerator.t()
         }
 
   @spec new(String.t(), BaseAgentConfig.t()) :: t()
@@ -42,7 +44,8 @@ defmodule NetsukeAgents.BaseAgent do
       current_user_input: nil,
       input_schema: config.input_schema,
       output_schema: config.output_schema,
-      client: config.client
+      client: config.client,
+      system_prompt_generator: config.system_prompt_generator || SystemPromptGenerator.new()
     }
   end
 
@@ -86,7 +89,7 @@ defmodule NetsukeAgents.BaseAgent do
     system_prompt = [
       %{
         role: agent.config.system_role,
-        content: SystemPromptGenerator.generate_system_prompt(agent)
+        content: SystemPromptGenerator.generate_prompt(agent.system_prompt_generator)
       }
     ]
 

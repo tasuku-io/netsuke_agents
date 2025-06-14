@@ -22,7 +22,6 @@ defmodule NetsukeAgents.Components.SystemPromptGenerator do
   Generates system prompts for agents based on their configuration.
   """
 
-  alias NetsukeAgents.BaseAgent
   alias NetsukeAgents.Components.SystemPromptContextProvider
 
   @type t :: %__MODULE__{
@@ -58,25 +57,6 @@ defmodule NetsukeAgents.Components.SystemPromptGenerator do
       ),
       context_providers: Keyword.get(opts, :context_providers, %{})
     }
-  end
-
-  @doc """
-  Generates a system prompt for the given agent.
-  """
-  @spec generate_system_prompt(BaseAgent.t()) :: String.t()
-  def generate_system_prompt(%BaseAgent{config: config}) do
-    generator = new()
-
-    # Extract relevant configuration from agent config and update generator
-    # This is a simplified example - you might want to parse more from config
-    generator = %{generator |
-      background: Map.get(config, :background, generator.background),
-      steps: Map.get(config, :steps, generator.steps),
-      output_instructions: Map.get(config, :output_instructions, generator.output_instructions),
-      context_providers: Map.get(config, :context_providers, generator.context_providers)
-    }
-
-    generate_prompt(generator)
   end
 
   @doc """

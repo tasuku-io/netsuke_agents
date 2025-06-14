@@ -49,6 +49,7 @@ defmodule NetsukeAgents.BaseAgentConfig do
   alias NetsukeAgents.DefaultInputSchema
   alias NetsukeAgents.DefaultOutputSchema
   alias NetsukeAgents.Factories.SchemaFactory
+  alias NetsukeAgents.Components.SystemPromptGenerator
 
   defstruct [
     :client,
@@ -58,7 +59,8 @@ defmodule NetsukeAgents.BaseAgentConfig do
     system_role: "system",
     input_schema: DefaultInputSchema,
     output_schema: DefaultOutputSchema,
-    model_api_parameters: %{temperature: 0.7}
+    model_api_parameters: %{temperature: 0.7},
+    system_prompt_generator: nil
   ]
 
   @type t :: %__MODULE__{
@@ -69,7 +71,8 @@ defmodule NetsukeAgents.BaseAgentConfig do
           system_prompt: String.t() | nil,
           input_schema: module(),
           output_schema: module(),
-          model_api_parameters: map() | nil
+          model_api_parameters: map() | nil,
+          system_prompt_generator: SystemPromptGenerator.t() | nil
         }
 
   @doc """
