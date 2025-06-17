@@ -13,8 +13,10 @@ defmodule NetsukeAgents.Application do
     # ]
     children = [
       NetsukeAgents.Repo,
+      NetsukeAgents.CommandedApp,
+      # TODO: Remove this after migration to Commanded
       {Registry, keys: :unique, name: NetsukeAgents.AgentRegistry},
-      NetsukeAgents.AgentSupervisor,
+      # NetsukeAgents.AgentSupervisor,
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
