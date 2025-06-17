@@ -7,6 +7,8 @@ defmodule NetsukeAgents.DefaultInputSchema do
   Schema for handling input messages to the agent.
   """
 
+  @derive {Jason.Encoder, only: [:chat_message]}
+
   @primary_key false
   embedded_schema do
     field :chat_message, :string
@@ -27,6 +29,8 @@ defmodule NetsukeAgents.DefaultOutputSchema do
   @llm_doc """
   Schema for handling output responses from the agent.
   """
+
+  @derive {Jason.Encoder, only: [:reply]}
 
   @primary_key false
   embedded_schema do

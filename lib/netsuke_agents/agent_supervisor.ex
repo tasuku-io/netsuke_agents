@@ -1,31 +1,30 @@
-defmodule NetsukeAgents.Application do
-  use Application
-
-  def start(_type, _args) do
-    children = [
-      {Registry, keys: :unique, name: NetsukeAgents.AgentRegistry},
-      {NetsukeAgents.AgentSupervisor, []}
-    ]
-
-    opts = [strategy: :one_for_one, name: NetsukeAgents.Supervisor]
-    Supervisor.start_link(children, opts)
-  end
-end
-
-# --- 4. Supervisor for Agents (lib/my_app/agent_supervisor.ex) ---
 defmodule NetsukeAgents.AgentSupervisor do
   use DynamicSupervisor
 
-  def start_link(_init_arg) do
-    DynamicSupervisor.start_link(__MODULE__, :ok, name: __MODULE__)
+  def start_link(init_arg) do
+    DynamicSupervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
   end
 
-  def init(:ok) do
+  @impl true
+  def init(_init_arg) do
     DynamicSupervisor.init(strategy: :one_for_one)
   end
 
   def start_agent(agent_id) do
-    child_spec = {NetsukeAgents.AgentServer, [agent_id: agent_id]}
+    child_spec = {NetsukeAgents.AgentServer, agent_id}
     DynamicSupervisor.start_child(__MODULE__, child_spec)
+  end
+
+  def stop_agent(agent_id) do
+    case Registry.lookup(NetsukeAgents.AgentRegistry, agent_id) do
+      [{pid, _}] ->
+        DynamicSupervisor.terminate_child(__MODULE__, pid)
+      [] ->
+        {:error, :not_found}
+    end
+  end
+
+  def list_running_agents do
+    Registry.select(NetsukeAgents.AgentRegistry, [{{:"$1", :"$2", :"$3"}, [], [{{:"$1", :"$2"}}]}])
   end
 end

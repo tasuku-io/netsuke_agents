@@ -93,8 +93,6 @@ defmodule NetsukeAgents.BaseAgent do
       }
     ]
 
-    IO.inspect(system_prompt, label: "System Prompt")
-
     # TODO: Construct this using System Prompt Generator
     messages = system_prompt ++ Enum.map(AgentMemory.get_history(agent.memory), fn message ->
       %{
