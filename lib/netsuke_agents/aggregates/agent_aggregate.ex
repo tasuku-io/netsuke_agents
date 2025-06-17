@@ -1,6 +1,8 @@
 defmodule NetsukeAgents.Aggregates.AgentAggregate do
   @moduledoc "Event-sourced aggregate for a single Netsuke agent"
 
+  # TODO: Configure snapshot_every: 500 or so to persist state periodically
+
   defstruct [:agent_id, :memory]
 
   alias __MODULE__
@@ -18,6 +20,11 @@ defmodule NetsukeAgents.Aggregates.AgentAggregate do
       initiator: user,
       metadata: %{timestamp: DateTime.utc_now()}
     }
+  end
+
+  # Si ya existe, no hacemos nada
+  def execute(%AgentAggregate{agent_id: id}, %CreateAgent{agent_id: id, initiator: _user}) do
+    []
   end
 
   # Registrar entrada de usuario
