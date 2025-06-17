@@ -14,6 +14,7 @@ defmodule NetsukeAgents.Application do
     children = [
       NetsukeAgents.Repo,
       NetsukeAgents.CommandedApp,
+      {Phoenix.PubSub, name: NetsukeAgents.PubSub},
       # TODO: Remove this after migration to Commanded
       {Registry, keys: :unique, name: NetsukeAgents.AgentRegistry},
       # NetsukeAgents.AgentSupervisor,

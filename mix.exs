@@ -33,6 +33,7 @@ defmodule NetsukeAgents.MixProject do
       {:commanded, "~> 1.4"},
       {:commanded_eventstore_adapter, "~> 1.4"},
       {:eventstore, "~> 1.4"},
+      {:phoenix_pubsub, "~> 2.1"},
       {:vex, "~> 0.9.0"},
       {:exconstructor, "~> 1.2"}
     ]
