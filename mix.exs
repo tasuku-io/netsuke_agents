@@ -29,7 +29,11 @@ defmodule NetsukeAgents.MixProject do
       {:jason, "~> 1.4"},
       {:uuid, "~> 1.0"},
       {:instructor, "~> 0.1.0"},
-      {:dotenvy, "~> 1.0.0"}
+      {:dotenvy, "~> 1.0.0"},
+      {:commanded, "~> 1.4"},
+      {:commanded_eventstore_adapter, "~> 1.4"},
+      {:eventstore, "~> 1.4"},
+      {:phoenix_pubsub, "~> 2.1"}
     ]
   end
 end
