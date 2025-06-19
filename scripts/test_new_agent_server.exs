@@ -12,7 +12,6 @@ alias NetsukeAgents.{AgentSupervisor, AgentServer}
 alias Phoenix.PubSub
 alias Commanded.EventStore.Adapters.EventStore
 alias Commanded.EventStore.RecordedEvent
-alias Commanded.EventStore.RecordedEvent
 alias NetsukeAgents.CommandedApp
 
 # Tester module
@@ -30,7 +29,7 @@ defmodule AgentTester do
     # Start a new agent via the supervisor
     {:ok, _pid} = AgentSupervisor.start_agent(agent_id)
 
-    # Subscribe to PubSub for real-time events
+    # Subscribe to PubSub for real-time events from agent
     Phoenix.PubSub.subscribe(NetsukeAgents.PubSub, "agent:#{agent_id}")
 
     # Sequence of test messages
@@ -43,11 +42,12 @@ defmodule AgentTester do
     # Process each message and print reply directly
     Enum.each(messages, fn message ->
       IO.puts("
-----
-Sending: #{message}")
+        ----
+        Sending: #{message}"
+      )
       output = AgentServer.run(agent_id, message)
       IO.puts("Response: #{output.reply}")  # Access the reply field
-      # Drain PubSub notifications for this turn
+      # Drain PubSub notifications for this turn (mailbox draining pattern)
       receive do
         notif -> IO.inspect(notif, label: "PubSub notification")
       after
@@ -58,7 +58,8 @@ Sending: #{message}")
     # Fetch events from EventStore directly
     IO.puts("
 
-== EVENT HISTORY FROM EVENTSTORE ==")
+      == EVENT HISTORY FROM EVENTSTORE =="
+    )
     # Use the EventStore module directly - not through CommandedApp config
     stream_id = "#{agent_id}"
 
@@ -73,14 +74,29 @@ Sending: #{message}")
     # Cleanup: stop agent via supervisor
     IO.puts("
 
-== CLEANUP ==")
+      == CLEANUP =="
+    )
     IO.puts("Stopping agent: #{agent_id}")
     AgentSupervisor.stop_agent(agent_id)
 
     :ok
   end
+
+  # Add this after your current event reading logic
+  IO.puts("\n\n== FULL EVENT STORE LOG ==")
+
+  # Alternative Option 2: List all streams first, then read each
+  {:ok, stream_ids} = NetsukeAgents.EventStore.stream_names()
+
+  IO.puts("\n\n== ALL STREAMS ==")
+  IO.puts("Found #{length(stream_ids)} streams: #{inspect(stream_ids)}")
 end
 
 # Run the test with Observer
 IO.puts("Starting Agent Event Sourcing Test with Observer")
 AgentTester.run(true)
+
+
+#  Notes
+#  Generates a unique agent ID for each run
+#  How does this ID relates to the process and the actual agent ID agent == aggregator?

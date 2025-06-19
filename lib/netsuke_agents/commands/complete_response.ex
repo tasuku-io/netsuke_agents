@@ -3,7 +3,6 @@ defmodule NetsukeAgents.Commands.CompleteResponse do
   use Vex.Struct
   use ExConstructor
 
-  @primary_key false
   defstruct [:agent_id, :output, :caused_by_correlation_id]
 
   validates :agent_id, uuid: true
