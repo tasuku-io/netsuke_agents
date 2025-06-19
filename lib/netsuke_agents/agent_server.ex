@@ -1,35 +1,47 @@
 defmodule NetsukeAgents.AgentServer do
   use GenServer
-  alias NetsukeAgents.{AgentEvent, Repo}
+  alias NetsukeAgents.BaseAgent
 
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: via(opts[:agent_id]))
+  # Client API
+  def start_link({id, config}) do
+    GenServer.start_link(__MODULE__, {id, config}, name: via_tuple(id))
   end
 
-  defp via(agent_id), do: {:via, Registry, {NetsukeAgents.AgentRegistry, agent_id}}
-
-  def init(opts) do
-    {:ok, %{agent_id: opts[:agent_id], memory: %{}}}
+  def run(agent_id, message) do
+    GenServer.call(via_tuple(agent_id), {:run, message})
   end
 
-  def run(agent_id, input) do
-    GenServer.call(via(agent_id), {:run, input})
+  # Server callbacks
+  @impl true
+  def init({id, config}) do
+    {:ok, BaseAgent.new(id, config)}
   end
 
-  def handle_call({:run, input}, _from, state) do
-    # Agent logic placeholder
-    output = %{message: "Response to #{input}"}
+  # @impl true
+  # def handle_call({:run, message}, _from, agent) do
+  #   case BaseAgent.run(agent, %{chat_message: message}) do
+  #     {:ok, updated_agent, response} ->
+  #       {:reply, {:ok, response.reply}, updated_agent}
+  #     error ->
+  #       {:reply, error, agent}
+  #   end
+  # end
 
-    # Log event
-    %AgentEvent{}
-    |> AgentEvent.changeset(%{
-      agent_id: state.agent_id,
-      type: "response_generated",
-      data: %{input: input, output: output},
-      caused_by: "run_call"
-    })
-    |> Repo.insert()
+  @impl true
+  def handle_call({:run, message}, _from, agent) do
+    # Create a task that runs asynchronously but is linked to the current process
+    task = Task.async(fn ->
+      BaseAgent.run(agent, %{chat_message: message})
+    end)
 
-    {:reply, output, state}
+    # Wait for the result with a timeout
+    case Task.await(task, 30_000) do
+      {:ok, updated_agent, response} ->
+        {:reply, {:ok, response.reply}, updated_agent}
+      error ->
+        {:reply, error, agent}
+    end
   end
+
+  defp via_tuple(id), do: {:via, Registry, {NetsukeAgents.Registry, id}}
 end

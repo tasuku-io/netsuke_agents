@@ -14,6 +14,7 @@ defmodule NetsukeAgents.Application do
     children = [
       NetsukeAgents.Repo,
       {Registry, keys: :unique, name: NetsukeAgents.AgentRegistry},
+      {Task.Supervisor, name: NetsukeAgents.TaskSupervisor},
       NetsukeAgents.AgentSupervisor
     ]
 
