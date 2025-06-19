@@ -14,7 +14,7 @@ defmodule NetsukeAgents.Application do
     children = [
       NetsukeAgents.Repo,
       {Registry, keys: :unique, name: NetsukeAgents.AgentRegistry},
-      {NetsukeAgents.AgentSupervisor, []}
+      NetsukeAgents.AgentSupervisor
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

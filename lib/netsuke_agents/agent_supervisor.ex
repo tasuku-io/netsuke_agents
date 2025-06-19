@@ -1,18 +1,3 @@
-defmodule NetsukeAgents.Application do
-  use Application
-
-  def start(_type, _args) do
-    children = [
-      {Registry, keys: :unique, name: NetsukeAgents.AgentRegistry},
-      {NetsukeAgents.AgentSupervisor, []}
-    ]
-
-    opts = [strategy: :one_for_one, name: NetsukeAgents.Supervisor]
-    Supervisor.start_link(children, opts)
-  end
-end
-
-# --- 4. Supervisor for Agents (lib/my_app/agent_supervisor.ex) ---
 defmodule NetsukeAgents.AgentSupervisor do
   use DynamicSupervisor
 
