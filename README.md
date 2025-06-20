@@ -289,36 +289,57 @@ Maintain separate agent instances for different users:
 Create a chain of agents that process information sequentially:
 
 ```elixir
-# Process with first agent
-input_for_sushi_master = %{chat_message: "How do I make the perfect sushi rice?"}
-{:ok, updated_sushi_master, sushi_master_response} = BaseAgent.run(sushi_master, input_for_sushi_master)
+alias NetsukeAgents.{BaseAgentConfig, AgentMemory, AgentSupervisor}
+alias NetsukeAgents.Components.SystemPromptGenerator
 
-# Set up initial memory for Food Critic
-food_critic_memory =
-  AgentMemory.new()
-  |> AgentMemory.add_message("assistant", %{
-    reply: "I am a Food Critic. I will concisely evaluate the accuracy from a provided recipie."
-  })
+# Start the registry (if not already started in your application)
+{:ok, _} = Registry.start_link(keys: :unique, name: NetsukeAgents.Registry)
 
-# Create config with memory and both custom output schema and input schema
-critic_config = BaseAgentConfig.new([
-  memory: food_critic_memory,
-  input_schema: %{ingredients: :list, steps: :list},
-  output_schema: %{recipie_evaluation: :string}
+# Configure the Sushi Master agent with custom prompt and output schema
+sushi_master_prompt = SystemPromptGenerator.new(
+  background: ["Expert Sushi Master with years of experience in traditional and modern techniques"],
+  steps: ["Understand the user's query", "Provide detailed and accurate information"],
+  output_instructions: ["Respond with structured details about ingredients and preparation steps"]
+)
+
+sushi_master_config = BaseAgentConfig.new([
+  output_schema: %{ingredients: [:string], preparation_steps: [:list]},
+  system_prompt_generator: sushi_master_prompt
 ])
 
-# Initialize Food Critic agent
-food_critic = BaseAgent.new("food-critic-agent", critic_config)
+# Start the Sushi Master agent as a supervised process with a unique session ID
+{:ok, sushi_master_id, _pid} = AgentSupervisor.start_agent_session("sushi-master", "user-123", sushi_master_config)
 
-# Pass the structured output to second agent
-{:ok, updated_food_critic, final_response} = BaseAgent.run(food_critic, sushi_master_response)
-```
+# Configure the Food Critic agent with custom prompt, memory and input schema
+food_critic_memory = AgentMemory.new() 
+  |> AgentMemory.add_message("assistant", %{
+    reply: "I am a Food Critic. I will evaluate the accuracy of provided recipes."
+  })
 
-```elixir
-# IO.inspect(final_response)
-%:DynamicSchema_recipie_evaluation{
-  recipie_evaluation: "The provided recipe for sushi rice is accurate and follows essential steps for preparing the rice properly. Rinsing the rice, soaking it, and cooking it using the correct water ratio ensures the right texture. The mixing of vinegar, sugar, and salt adds flavor, which is essential for sushi rice. Overall, the recipe is clear and well-structured."
-}
+food_critic_prompt = SystemPromptGenerator.new(
+  background: ["Expert Food Critic specialized in evaluating culinary techniques"],
+  steps: ["Analyze recipe ingredients and steps", "Evaluate authenticity and accuracy"],
+  output_instructions: ["Provide a concise evaluation of the recipe"]
+)
+
+food_critic_config = BaseAgentConfig.new([
+  memory: food_critic_memory,
+  system_prompt_generator: food_critic_prompt,
+  input_schema: %{ingredients: [:string], preparation_steps: [:list]}
+])
+
+# Start the Food Critic agent as a supervised process with a unique session ID
+{:ok, food_critic_id, _pid} = AgentSupervisor.start_agent_session("food-critic", "user-123", food_critic_config)
+
+# Run the first agent with a question about sushi rice
+{:ok, sushi_master_response} = AgentSupervisor.run_agent(sushi_master_id, %{
+  chat_message: "How do I make the perfect sushi rice?"
+})
+
+# Pass the structured output from the first agent to the second agent
+{:ok, critic_evaluation} = AgentSupervisor.run_agent(food_critic_id, sushi_master_response)
+
+# The critic_evaluation now contains the food critic's assessment of the sushi recipe
 ```
 
 ## Documentation
