@@ -31,13 +31,13 @@ defmodule NetsukeAgents.AgentServer do
   def handle_call({:run, message}, _from, agent) do
     # Create a task that runs asynchronously but is linked to the current process
     task = Task.async(fn ->
-      BaseAgent.run(agent, %{chat_message: message})
+      BaseAgent.run(agent, message)
     end)
 
     # Wait for the result with a timeout
-    case Task.await(task, 30_000) do
+    case Task.await(task, 30000) do
       {:ok, updated_agent, response} ->
-        {:reply, {:ok, response.reply}, updated_agent}
+        {:reply, {:ok, response}, updated_agent}
       error ->
         {:reply, error, agent}
     end
