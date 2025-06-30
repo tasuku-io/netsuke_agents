@@ -60,7 +60,7 @@ IO.puts("User: #{input}")
 
 # Process with first agent (Sushi Master)
 input_for_sushi = %{chat_message: input}
-{:ok, updated_sushi_master, sushi_response} = BaseAgent.run(sushi_master, input_for_sushi)
+{:ok, _updated_sushi_master, sushi_response} = BaseAgent.run(sushi_master, input_for_sushi)
 
 IO.inspect(sushi_response, label: "\n🍣 Sushi Master Response")
 
@@ -71,7 +71,7 @@ input_for_critic = sushi_response
 #   steps: sushi_response.steps
 # }
 IO.inspect(input_for_critic, label: "Input for Food Critic")
-{:ok, updated_food_critic, critic_response} = BaseAgent.run(food_critic, input_for_critic)
+{:ok, _updated_food_critic, critic_response} = BaseAgent.run(food_critic, input_for_critic)
 
 IO.inspect(critic_response, label: "\n🧐 Food Critic Response")
 

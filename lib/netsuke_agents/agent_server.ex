@@ -18,7 +18,7 @@ defmodule NetsukeAgents.AgentServer do
   def run(session_id, message, timeout) when is_map(message) and is_integer(timeout) and timeout > 0 do
     GenServer.call(via_tuple(session_id), {:run, message, timeout})
   end
-  def run(_session_id, message, timeout) when not is_map(message) do
+  def run(_session_id, message, _timeout) when not is_map(message) do
     {:error, "Message must be a map"}
   end
   def run(_session_id, _message, timeout) when not is_integer(timeout) or timeout <= 0 do

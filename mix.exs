@@ -4,10 +4,14 @@ defmodule NetsukeAgents.MixProject do
   def project do
     [
       app: :netsuke_agents,
-      version: "0.1.0",
-      elixir: "~> 1.18",
+      version: "0.0.1-alpha.1",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      description: description(),
+      package: package(),
+      docs: docs(),
+      source_url: "https://github.com/tasuku-io/netsuke_agents"
     ]
   end
 
@@ -22,14 +26,39 @@ defmodule NetsukeAgents.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
+      # Core dependencies
       {:ecto_sql, "~> 3.10"},
       {:postgrex, ">= 0.0.0"},
       {:jason, "~> 1.4"},
       {:uuid, "~> 1.0"},
       {:instructor, "~> 0.1.0"},
-      {:dotenvy, "~> 1.0.0"}
+      {:dotenvy, "~> 1.0.0"},
+
+      # Dev/test dependencies
+      {:ex_doc, "~> 0.31", only: :dev, runtime: false}
+    ]
+  end
+
+  defp description do
+    "A flexible Elixir library for building, validating, and managing AI agents with structured memory and schema validation."
+  end
+
+  defp package do
+    [
+      licenses: ["MIT"],
+      links: %{
+        "GitHub" => "https://github.com/tasuku-io/netsuke_agents",
+        "Docs" => "https://hexdocs.pm/netsuke_agents"
+      },
+      maintainers: ["Luis Guzman"],
+      files: ~w(lib priv mix.exs README.md LICENSE CHANGELOG.md)
+    ]
+  end
+
+  defp docs do
+    [
+      main: "NetsukeAgents",
+      extras: ["README.md", "CHANGELOG.md"]
     ]
   end
 end

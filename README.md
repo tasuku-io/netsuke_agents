@@ -24,10 +24,38 @@ Add `netsuke_agents` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:netsuke_agents, "~> 0.1.0"}
+    {:netsuke_agents, git: "https://github.com/tasuku-io/netsuke_agents", tag: "v0.0.1-alpha.1"}
   ]
 end
 ```
+
+Then run:
+
+```bash
+mix deps.get
+```
+
+### Configuration
+
+If you want to use the built-in supervision tree and database functionality, add this to your application's supervision tree:
+
+```elixir
+# In your application.ex
+def start(_type, _args) do
+  children = [
+    # Your other children...
+    NetsukeAgents.Repo,
+    {Registry, keys: :unique, name: NetsukeAgents.AgentRegistry},
+    {Task.Supervisor, name: NetsukeAgents.TaskSupervisor},
+    NetsukeAgents.AgentSupervisor
+  ]
+  
+  opts = [strategy: :one_for_one, name: MyApp.Supervisor]
+  Supervisor.start_link(children, opts)
+end
+```
+
+Or you can use agents without the supervision tree for simpler use cases.
 
 ## Usage Examples
 
