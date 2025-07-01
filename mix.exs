@@ -4,7 +4,7 @@ defmodule NetsukeAgents.MixProject do
   def project do
     [
       app: :netsuke_agents,
-      version: "0.0.1-alpha.1",
+      version: "0.0.1-alpha.2",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -58,7 +58,7 @@ defmodule NetsukeAgents.MixProject do
   defp docs do
     [
       main: "NetsukeAgents",
-      extras: ["README.md", "CHANGELOG.md"]
+      extras: ["README.md", "CHANGELOG.md", "LICENSE"]
     ]
   end
 end

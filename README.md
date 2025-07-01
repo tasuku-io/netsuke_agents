@@ -35,6 +35,10 @@ Then run:
 mix deps.get
 ```
 
+Setup OpenAI API key in .env:
+
+`OPENAI_API_KEY=your_openai_api_key`
+
 ### Configuration
 
 If you want to use the built-in supervision tree and database functionality, add this to your application's supervision tree:
