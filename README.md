@@ -10,7 +10,7 @@ A flexible Elixir library for building, validating, and managing AI agents with 
 
 Netsuke Agents provides a robust framework for creating and managing agent-based systems in Elixir. It offers:
 
-- **Schema Validation** - Define and validate input/output schemas
+- **Schema Validation** - Define and validate complex input/output schemas
 - **Memory Management** - Track and manage agent conversation history
 - **Flexible Configuration** - Easily configure agents with custom behaviors
 - **Type Safety** - Strong typing with comprehensive validation rules
@@ -24,7 +24,7 @@ Add `netsuke_agents` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:netsuke_agents, git: "https://github.com/tasuku-io/netsuke_agents", tag: "v0.0.1-alpha.1"}
+    {:netsuke_agents, git: "https://github.com/tasuku-io/netsuke_agents", tag: "v0.0.1-alpha.3"}
   ]
 end
 ```
@@ -79,13 +79,88 @@ sushi_master_memory =
 sushi_master_config = BaseAgentConfig.new([
   memory: sushi_master_memory,
   output_schema: %{
-    ingredients: :list,
-    steps: :list
+    ingredients: {:array, {:embeds_many, %{
+      name: :string,
+      quantity: :string,
+      notes: :string
+    }}},
+    steps: {:array, {:embeds_many, %{
+      order: :integer,
+      instruction: :string,
+      duration_minutes: :integer
+    }}}
   }
   ])
 ```
 
 A dynamic schema module will be generated from the output_schema map of field definitions by `schema_factory.ex`.
+
+## Schema Factory
+
+The SchemaFactory dynamically generates Ecto schemas at runtime from simple map definitions, providing flexible type validation for agent inputs and outputs.
+
+### Supported Field Types
+
+- **Basic Types**: `:string`, `:integer`, `:float`, `:boolean`, `:map`
+- **Arrays**: `{:array, :string}`, `{:array, :integer}`, etc.
+- **Structured Arrays**: `{:array, {:embeds_many, schema_map}}` for arrays of structured maps
+- **Backwards Compatibility**: `:list` (converted to `{:array, :string}`) and `:datetime` (converted to `:utc_datetime`)
+
+### Examples
+
+#### Simple Schema
+```elixir
+# Basic field types
+output_schema = %{
+  name: :string,
+  age: :integer,
+  tags: {:array, :string}
+}
+```
+
+#### Complex Schema with Structured Arrays
+```elixir
+# Recipe with structured ingredients and steps
+output_schema = %{
+  recipe_name: :string,
+  ingredients: {:array, {:embeds_many, %{
+    name: :string,
+    quantity: :string,
+    unit: :string
+  }}},
+  steps: {:array, {:embeds_many, %{
+    order: :integer,
+    instruction: :string,
+    duration_minutes: :integer
+  }}}
+}
+```
+
+#### E-commerce Example
+```elixir
+# Product catalog with variants
+output_schema = %{
+  product_name: :string,
+  description: :string,
+  price: :float,
+  variants: {:array, {:embeds_many, %{
+    size: :string,
+    color: :string,
+    stock_count: :integer,
+    sku: :string
+  }}},
+  reviews: {:array, {:embeds_many, %{
+    rating: :integer,
+    comment: :string,
+    reviewer_name: :string
+  }}}
+}
+```
+
+The SchemaFactory automatically:
+- Creates separate embedded schema modules for each structured array
+- Handles validation for both parent and embedded schemas
+- Generates deterministic module names for caching and reuse
 
 ```elixir
 # Initialize the agent
@@ -105,14 +180,21 @@ input = %{chat_message: "How do I make the perfect sushi rice?"}
 ```bash
 # IO.inspect(response)
 %:DynamicSchema_ingredients_steps{
-  ingredients: ["short-grain rice", "water", "rice vinegar", "sugar", "salt"],
-  steps: ["Rinse the rice under cold water until the water runs clear.",
-   "Soak the rice in water for 30 minutes, then drain.",
-   "In a rice cooker, combine the rice and water in the ratio of 1:1.1.",
-   "Cook the rice according to the rice cooker's instructions.",
-   "Once cooked, let the rice sit covered for 10 minutes off heat.",
-   "In a separate bowl, mix rice vinegar, sugar, and salt until dissolved.",
-   "Gently fold the vinegar mixture into the rice using a wooden spatula, while fanning the rice to cool it."]
+  ingredients: [
+    %{name: "short-grain rice", quantity: "2 cups", notes: "preferably Japanese variety"},
+    %{name: "water", quantity: "2.2 cups", notes: "filtered water works best"},
+    %{name: "rice vinegar", quantity: "1/4 cup", notes: "unseasoned"},
+    %{name: "sugar", quantity: "2 tablespoons", notes: "white granulated"},
+    %{name: "salt", quantity: "1 teaspoon", notes: "fine sea salt"}
+  ],
+  steps: [
+    %{order: 1, instruction: "Rinse the rice under cold water until the water runs clear", duration_minutes: 5},
+    %{order: 2, instruction: "Soak the rice in water for 30 minutes, then drain", duration_minutes: 30},
+    %{order: 3, instruction: "Cook rice in rice cooker with 1:1.1 rice to water ratio", duration_minutes: 20},
+    %{order: 4, instruction: "Let rice sit covered for 10 minutes off heat", duration_minutes: 10},
+    %{order: 5, instruction: "Mix vinegar, sugar, and salt until dissolved", duration_minutes: 2},
+    %{order: 6, instruction: "Fold vinegar mixture into rice while fanning to cool", duration_minutes: 8}
+  ]
 }
 
 ```
@@ -136,8 +218,23 @@ food_critic_memory =
 # Create config with memory and both custom output schema and input schema
 critic_config = BaseAgentConfig.new([
   memory: food_critic_memory,
-  input_schema: %{ingredients: :list, steps: :list},
-  output_schema: %{recipie_evaluation: :string}
+  input_schema: %{
+    ingredients: {:array, {:embeds_many, %{
+      name: :string,
+      quantity: :string,
+      notes: :string
+    }}},
+    steps: {:array, {:embeds_many, %{
+      order: :integer,
+      instruction: :string,
+      duration_minutes: :integer
+    }}}
+  },
+  output_schema: %{
+    overall_rating: :integer,
+    recipe_evaluation: :string,
+    suggestions: {:array, :string}
+  }
 ])
 
 # Initialize Food Critic agent
@@ -149,8 +246,14 @@ food_critic = BaseAgent.new("food-critic-agent", critic_config)
 
 ```bash
 # IO.inspect(final_response)
-%:DynamicSchema_recipie_evaluation{
-  recipie_evaluation: "The provided recipe for sushi rice is accurate and follows essential steps for preparing the rice properly. Rinsing the rice, soaking it, and cooking it using the correct water ratio ensures the right texture. The mixing of vinegar, sugar, and salt adds flavor, which is essential for sushi rice. Overall, the recipe is clear and well-structured."
+%:DynamicSchema_overall_rating_recipe_evaluation_suggestions{
+  overall_rating: 9,
+  recipe_evaluation: "Excellent traditional sushi rice recipe with proper techniques. The rice-to-water ratio is accurate, and the vinegar seasoning proportions are authentic. The step-by-step approach ensures proper texture and flavor development.",
+  suggestions: [
+    "Consider mentioning the importance of using a wooden or plastic paddle to avoid breaking rice grains",
+    "Could add a note about the ideal serving temperature (body temperature, around 98°F)",
+    "Suggest letting the seasoned rice rest for 5 minutes before use for optimal flavor integration"
+  ]
 }
 ```
 
@@ -335,7 +438,19 @@ sushi_master_prompt = SystemPromptGenerator.new(
 )
 
 sushi_master_config = BaseAgentConfig.new([
-  output_schema: %{ingredients: [:string], preparation_steps: [:list]},
+  output_schema: %{
+    ingredients: {:array, {:embeds_many, %{
+      name: :string,
+      quantity: :string,
+      preparation_notes: :string
+    }}},
+    preparation_steps: {:array, {:embeds_many, %{
+      step_number: :integer,
+      instruction: :string,
+      estimated_time: :integer,
+      technique: :string
+    }}}
+  },
   system_prompt_generator: sushi_master_prompt
 ])
 
@@ -357,7 +472,24 @@ food_critic_prompt = SystemPromptGenerator.new(
 food_critic_config = BaseAgentConfig.new([
   memory: food_critic_memory,
   system_prompt_generator: food_critic_prompt,
-  input_schema: %{ingredients: [:string], preparation_steps: [:list]}
+  input_schema: %{
+    ingredients: {:array, {:embeds_many, %{
+      name: :string,
+      quantity: :string,
+      preparation_notes: :string
+    }}},
+    preparation_steps: {:array, {:embeds_many, %{
+      step_number: :integer,
+      instruction: :string,
+      estimated_time: :integer,
+      technique: :string
+    }}}
+  },
+  output_schema: %{
+    authenticity_score: :integer,
+    technique_evaluation: :string,
+    improvement_suggestions: {:array, :string}
+  }
 ])
 
 # Start the Food Critic agent as a supervised process with a unique session ID

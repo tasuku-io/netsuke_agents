@@ -40,11 +40,14 @@ initial_memory =
 # Create config for the agent
 config = BaseAgentConfig.new([
   memory: initial_memory,
-  system_prompt_generator: custom_system_prompt
+  system_prompt_generator: custom_system_prompt,
+  input_schema: nil,
 ])
 
 # Initialize the agent
 agent = BaseAgent.new("console-agent", config)
+
+IO.inspect(agent, label: "Initialized Agent")
 
 # Show initial system prompt and message
 IO.puts("🧠 Agent: Hello! Anon-san How can I assist you today?")
