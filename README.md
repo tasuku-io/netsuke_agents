@@ -136,6 +136,32 @@ output_schema = %{
 }
 ```
 
+#### Complex Schema with Structured Arrays (Map syntax)
+```elixir
+# Recipe with structured ingredients and steps with map syntax
+output_schema = %{
+  recipe_name: "string",
+  ingredients: %{
+    "type" => "array",
+    "items" => %{
+      "type" => "embeds_many",
+      "schema" => %{
+        "name" => "string",
+        "quantity" => "string",
+        "unit" => "string"
+      }}},
+  steps: %{
+    "type" => "array",
+    "items" => %{
+      "type" => "embeds_many",
+      "schema" => %{
+        "order" => "integer",
+        "instruction" => "string",
+        "duration_minutes" => "integer"
+      }}}
+}
+```
+
 #### E-commerce Example
 ```elixir
 # Product catalog with variants
