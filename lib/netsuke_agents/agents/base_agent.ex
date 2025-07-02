@@ -3,7 +3,7 @@ defmodule NetsukeAgents.BaseAgent do
   A base agent that provides the core functionality for handling chat interactions.
   """
 
-  # import Ecto.Changeset
+  import Ecto.Changeset
 
   alias NetsukeAgents.{BaseAgentConfig, AgentMemory}
   alias NetsukeAgents.Components.SystemPromptGenerator
@@ -115,7 +115,7 @@ defmodule NetsukeAgents.BaseAgent do
   @spec run(t(), map()) :: {:ok, t(), map()} | {:error, any()}
   def run(%__MODULE__{} = agent, input) do
     # Validate input against schema
-    # validate_input_against_schema!(input, agent.input_schema)
+    validate_input_against_schema!(input, agent.input_schema)
 
     memory =
       agent.memory
@@ -135,40 +135,81 @@ defmodule NetsukeAgents.BaseAgent do
     end
   end
 
-  # defp validate_input_against_schema!(input, schema_module) when is_map(input) do
-  #   # Create a changeset using the schema module
-  #   changeset =
-  #     struct(schema_module)
-  #     |> schema_module.validate_changeset(input)
+  def validate_input_against_schema!(input, schema_module) when is_map(input) do
+    # Get the field names and embedded field names from the schema
+    field_names = schema_module.__schema__(:fields)
+    embed_names = schema_module.__schema__(:embeds)
 
-  #   # If the changeset has errors, raise them in a user-friendly format
-  #   if changeset.valid? do
-  #     :ok
-  #   else
-  #     error_messages = format_changeset_errors(changeset)
-  #     raise ArgumentError, "Input validation failed: #{error_messages}"
-  #   end
-  # end
+    # Separate regular fields from embedded fields
+    regular_fields = field_names -- embed_names
 
-  # # Format changeset errors into a readable string
-  # defp format_changeset_errors(changeset) do
-  #   errors = traverse_errors(changeset, fn {msg, opts} ->
-  #     Enum.reduce(opts, msg, fn {key, value}, acc ->
-  #       String.replace(acc, "%{#{key}}", to_string(value))
-  #     end)
-  #   end)
+    # Create a changeset using cast for regular fields
+    changeset = struct(schema_module) |> cast(input, regular_fields)
 
-  #   # Convert errors to string with more detail
-  #   errors
-  #   |> Enum.map_join("; ", fn {k, v} ->
-  #     if k == :base do
-  #       # Handle base errors (like our unknown fields error)
-  #       Enum.join(v, "; ")
-  #     else
-  #       # Show field name and all error messages for that field
-  #       errors_description = Enum.join(v, ", ")
-  #       "#{k}: #{errors_description}"
-  #     end
-  #   end)
-  # end
+    # Add embedded fields using cast_embed
+    changeset = Enum.reduce(embed_names, changeset, fn embed_name, acc ->
+      cast_embed(acc, embed_name)
+    end)
+
+    # Apply schema validation
+    changeset = schema_module.validate_changeset(changeset)
+
+    # If the changeset has errors, raise them in a user-friendly format
+    if changeset.valid? do
+      :ok
+    else
+      error_messages = format_changeset_errors(changeset)
+      raise ArgumentError, "Input validation failed: #{error_messages}"
+    end
+  end
+
+  # Format changeset errors into a readable string
+  defp format_changeset_errors(changeset) do
+    errors = traverse_errors(changeset, fn {msg, opts} ->
+      Enum.reduce(opts, msg, fn {key, value}, acc ->
+        # Handle nested errors that might be maps
+        formatted_value = case value do
+          map when is_map(map) -> inspect(map)
+          other -> to_string(other)
+        end
+        String.replace(acc, "%{#{key}}", formatted_value)
+      end)
+    end)
+
+    # Convert errors to string with more detail
+    format_error_map(errors)
+  end
+
+  # Helper function to format error maps (including nested embed errors)
+  defp format_error_map(errors) when is_map(errors) do
+    errors
+    |> Enum.map_join("; ", fn {k, v} ->
+      if k == :base do
+        # Handle base errors
+        format_error_value(v)
+      else
+        # Show field name and error details
+        "#{k}: #{format_error_value(v)}"
+      end
+    end)
+  end
+
+  # Helper function to format different types of error values
+  defp format_error_value(v) when is_list(v) do
+    v
+    |> Enum.map(&format_error_value/1)
+    |> Enum.join(", ")
+  end
+
+  defp format_error_value(v) when is_map(v) do
+    # Handle nested embed errors (like %{name: ["can't be blank"], age: ["is invalid"]})
+    v
+    |> Enum.map_join(", ", fn {field, errors} ->
+      "#{field}: #{format_error_value(errors)}"
+    end)
+    |> then(&"[#{&1}]")
+  end
+
+  defp format_error_value(v) when is_binary(v), do: v
+  defp format_error_value(v), do: to_string(v)
 end

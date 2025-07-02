@@ -4,7 +4,15 @@ Application.ensure_all_started(:jason)
 
 IO.puts("""
 === 🤖 Netsuke Custom I/O Schemas Example ===
-Input Schema: {:array, {:embeds_many, %{step_number: :integer, description: :string}}}
+Input Schema: %{
+  "type" => "array",
+  "items" => %{
+    "type" => "embeds_many",
+    "schema" => %{
+      "dish_name" => "string"
+    }
+  }
+}
 ---
 Output Schema: {:array, {:embeds_many, %{
     english_name: :string,
@@ -35,8 +43,14 @@ output_schema = %{
   steps: {:array, {:embeds_many, %{step_number: :integer, description: :string}}}
 }
 
-input_schema = %{
-  dish_name: :string
+input_schema = %{ # Map format commonly used in databases
+  "type" => "array",
+  "items" => %{
+    "type" => "embeds_many",
+    "schema" => %{
+      "dish_name" => "string"
+    }
+  }
 }
 
 custom_prompt = SystemPromptGenerator.new(
