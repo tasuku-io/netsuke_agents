@@ -152,22 +152,69 @@ defmodule NetsukeAgents.BaseAgentConfig do
   defp normalize_schema_option(opts, schema_key) do
     case Keyword.get(opts, schema_key) do
       nil -> opts
-      schema -> Keyword.put(opts, schema_key, normalize_schema_keys(schema))
+      schema -> Keyword.put(opts, schema_key, normalize_schema(schema))
     end
   end
 
-  defp normalize_schema_keys(schema) when is_map(schema) do
-    schema
-    |> Enum.reduce(%{}, fn {key, value}, acc ->
-      atom_key = normalize_key(key)
-      normalized_value = normalize_value(value)
-      Map.put(acc, atom_key, normalized_value)
+  # Handle JSON-schema-like maps at the top level
+  defp normalize_schema(%{"type" => "array", "items" => items} = top_level) when map_size(top_level) == 2 do
+    # This is a top-level schema definition, wrap it in a field map
+    %{items: {:array, normalize_schema_value(items)}}
+  end
+
+  # Handle regular maps (field definitions)
+  defp normalize_schema(schema) when is_map(schema) do
+    Map.new(schema, fn {key, value} ->
+      {string_to_atom(key), normalize_schema_value(value)}
     end)
   end
 
-  defp normalize_schema_keys(schema), do: schema
+  # Pass through everything else (atoms, tuples, etc.)
+  defp normalize_schema(value), do: value
 
-  defp normalize_key(key) when is_binary(key) do
+  # Handle nested schema values
+  defp normalize_schema_value(%{"type" => "array", "items" => items}) do
+    {:array, normalize_schema_value(items)}
+  end
+
+  defp normalize_schema_value(%{"type" => "embeds_many", "schema" => schema}) do
+    {:embeds_many, normalize_schema(schema)}
+  end
+
+  defp normalize_schema_value(%{"type" => type}) when is_binary(type) do
+    String.to_atom(type)
+  end
+
+  # Handle regular maps in values
+  defp normalize_schema_value(schema) when is_map(schema) do
+    Map.new(schema, fn {key, value} ->
+      {string_to_atom(key), normalize_schema_value(value)}
+    end)
+  end
+
+  # Handle tuple-based schemas (already normalized)
+  defp normalize_schema_value({:array, {:embeds_many, schema_map}}) when is_map(schema_map) do
+    {:array, {:embeds_many, normalize_schema(schema_map)}}
+  end
+
+  defp normalize_schema_value({key, value}) when is_tuple({key, value}) do
+    {normalize_schema_value(key), normalize_schema_value(value)}
+  end
+
+  # Handle string types
+  defp normalize_schema_value(value) when is_binary(value) do
+    String.to_atom(value)
+  end
+
+  # Handle lists
+  defp normalize_schema_value(value) when is_list(value) do
+    Enum.map(value, &normalize_schema_value/1)
+  end
+
+  # Pass through everything else (atoms, etc.)
+  defp normalize_schema_value(value), do: value
+
+  defp string_to_atom(key) when is_binary(key) do
     try do
       String.to_existing_atom(key)
     rescue
@@ -175,28 +222,5 @@ defmodule NetsukeAgents.BaseAgentConfig do
     end
   end
 
-  defp normalize_key(key) when is_atom(key), do: key
-
-  defp normalize_value({:array, {:embeds_many, schema_map}}) when is_map(schema_map) do
-    # Handle the special case of embedded schema arrays
-    {:array, {:embeds_many, normalize_schema_keys(schema_map)}}
-  end
-
-  defp normalize_value({key, nested_value} = tuple) when is_tuple(tuple) do
-    # Handle other tuples by normalizing their values recursively
-    case tuple_size(tuple) do
-      2 -> {normalize_value(key), normalize_value(nested_value)}
-      _ -> tuple
-    end
-  end
-
-  defp normalize_value(value) when is_map(value) do
-    normalize_schema_keys(value)
-  end
-
-  defp normalize_value(value) when is_list(value) do
-    Enum.map(value, &normalize_value/1)
-  end
-
-  defp normalize_value(value), do: value
+  defp string_to_atom(key) when is_atom(key), do: key
 end

@@ -3,6 +3,7 @@ defmodule NetsukeAgents.AgentMessage do
   Represents a message in the agent's memory, including role, content, and turn ID.
   """
 
+  @derive {Jason.Encoder, only: [:role, :content, :turn_id]}
   defstruct [:role, :content, :turn_id]
 
   @type t :: %__MODULE__{
@@ -21,6 +22,7 @@ defmodule NetsukeAgents.AgentMemory do
   alias NetsukeAgents.AgentMessage
   require Logger
 
+  @derive {Jason.Encoder, only: [:history, :max_messages, :current_turn_id]}
   defstruct history: [], max_messages: nil, current_turn_id: nil
 
   @type t :: %__MODULE__{

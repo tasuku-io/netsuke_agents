@@ -24,7 +24,7 @@ Add `netsuke_agents` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:netsuke_agents, git: "https://github.com/tasuku-io/netsuke_agents", tag: "v0.0.1-alpha.3"}
+    {:netsuke_agents, git: "https://github.com/tasuku-io/netsuke_agents", tag: "v0.0.1-alpha.4"}
   ]
 end
 ```
@@ -133,6 +133,32 @@ output_schema = %{
     instruction: :string,
     duration_minutes: :integer
   }}}
+}
+```
+
+#### Complex Schema with Structured Arrays (Map syntax)
+```elixir
+# Recipe with structured ingredients and steps with map syntax
+output_schema = %{
+  recipe_name: "string",
+  ingredients: %{
+    "type" => "array",
+    "items" => %{
+      "type" => "embeds_many",
+      "schema" => %{
+        "name" => "string",
+        "quantity" => "string",
+        "unit" => "string"
+      }}},
+  steps: %{
+    "type" => "array",
+    "items" => %{
+      "type" => "embeds_many",
+      "schema" => %{
+        "order" => "integer",
+        "instruction" => "string",
+        "duration_minutes" => "integer"
+      }}}
 }
 ```
 
