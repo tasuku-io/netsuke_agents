@@ -39,7 +39,15 @@ defmodule NetsukeAgents.Factories.SchemaFactory do
       # Build the module with the specified fields
       {fields_ast, embedded_schemas} = build_fields_with_embeds(field_map, module_name)
 
-      required_fields = Map.keys(field_map)
+      # Separate regular fields from embedded fields for proper validation
+      embed_field_names = Enum.reduce(field_map, [], fn {field_name, field_type}, acc ->
+        case field_type do
+          {:array, {:embeds_many, _}} -> [field_name | acc]
+          _ -> acc
+        end
+      end)
+
+      regular_field_names = Map.keys(field_map) -- embed_field_names
 
       # Define the module
       ast = quote do
@@ -62,8 +70,16 @@ defmodule NetsukeAgents.Factories.SchemaFactory do
 
           @impl true
           def validate_changeset(changeset) do
+            # Apply validation for regular fields only
+            changeset = if unquote(regular_field_names) != [] do
+              validate_required(changeset, unquote(regular_field_names))
+            else
+              changeset
+            end
+
+            # For embedded fields, the validation is handled by cast_embed with required: true
+            # in the BaseAgent validation logic
             changeset
-            |> validate_required(unquote(required_fields))
           end
         end
       end

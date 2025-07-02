@@ -273,48 +273,74 @@ defmodule BaseAgentTest do
       assert error_message.message =~ "meta_description: can't be blank"
       assert error_message.message =~ "title: can't be blank"
     end
+  end
 
-    test "creates BaseAgent with both input and output schemas matching consuming app format" do
-      input_schema = %{
-        "keyword" => "string",
-        "language" => "string",
-        "mode" => "string"
+  test "validates input agains embedded schema with Map format" do
+    # This test ensures that the embedded schema with Map format is validated correctly
+    embedded_schema = %{
+      dish_name: "string",
+      ingredients: %{
+        "type" => "array",
+        "items" => %{
+          "type" => "embeds_many",
+          "schema" => %{
+            "ingredient_name" => "string",
+            "ingredient_amount" => "integer"
+          }
+        }
       }
+    }
 
-      output_schema = %{
-        "content" => "string",
-        "meta_description" => "string",
-        "outline" => "map",
-        "title" => "string"
-      }
+    config = base_agent_config_fixture(%{input_schema: embedded_schema})
+    agent = BaseAgent.new("test_embedded_schema", config)
 
-      config = base_agent_config_fixture(%{
-        input_schema: input_schema,
-        output_schema: output_schema
-      })
-      agent = BaseAgent.new("test_agent_full", config)
+    # Valid input with correct structure
+    valid_input = %{dish_name: "okonomiyaki", ingredients: [%{ingredient_name: "Flour", ingredient_amount: 500}]}
 
-      # Verify the agent was created successfully
-      assert agent.id == "test_agent_full"
-      assert agent.config.input_schema != NetsukeAgents.DefaultInputSchema
-      assert agent.config.output_schema != NetsukeAgents.DefaultOutputSchema
+    assert :ok == BaseAgent.validate_input_against_schema!(valid_input, agent.config.input_schema)
 
-      # Test that both schemas work correctly
-      valid_input = %{
-        keyword: "elixir programming",
-        language: "en",
-        mode: "tutorial"
-      }
+    # Invalid input missing required field
+    invalid_input = %{dish_name: "okonomiyaki", ingredients: [%{ingredient_amount: 500}]}  # Missing ingredient_name
 
-      valid_output = %{
-        content: "This is the main content...",
-        meta_description: "A brief description",
-        outline: %{intro: "introduction", body: "main content"},
-        title: "How to Learn Elixir"
-      }
-
-      assert :ok == BaseAgent.validate_input_against_schema!(valid_input, agent.config.input_schema)
-      assert :ok == BaseAgent.validate_input_against_schema!(valid_output, agent.config.output_schema)
+    error_message = assert_raise ArgumentError, fn ->
+      BaseAgent.validate_input_against_schema!(invalid_input, agent.config.input_schema)
     end
+
+    assert error_message.message =~ "Input validation failed"
+    assert error_message.message =~ "ingredient_name: can't be blank"
+  end
+
+  test "validates input agains embedded schema with Ecto Types format" do
+    # This test ensures that the embedded schema with Ecto Types format is validated correctly
+
+    embedded_schema = %{
+      dish_name: :string,
+      ingredients: {
+        :array, {
+          :embeds_many, %{
+            ingredient_name: :string,
+            ingredient_amount: :integer
+          }
+        }
+      }
+    }
+
+    config = base_agent_config_fixture(%{input_schema: embedded_schema})
+    agent = BaseAgent.new("test_embedded_schema", config)
+
+    # Valid input with correct structure
+    valid_input = %{dish_name: "okonomiyaki", ingredients: [%{ingredient_name: "Flour", ingredient_amount: 500}]}
+
+    assert :ok == BaseAgent.validate_input_against_schema!(valid_input, agent.config.input_schema)
+
+    # Invalid input missing required field
+    invalid_input = %{dish_name: "okonomiyaki", ingredients: [%{ingredient_amount: 500}]}  # Missing ingredient_name
+
+    error_message = assert_raise ArgumentError, fn ->
+      BaseAgent.validate_input_against_schema!(invalid_input, agent.config.input_schema)
+    end
+
+    assert error_message.message =~ "Input validation failed"
+    assert error_message.message =~ "ingredient_name: can't be blank"
   end
 end

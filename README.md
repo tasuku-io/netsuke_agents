@@ -24,7 +24,7 @@ Add `netsuke_agents` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:netsuke_agents, git: "https://github.com/tasuku-io/netsuke_agents", tag: "v0.0.1-alpha.3"}
+    {:netsuke_agents, git: "https://github.com/tasuku-io/netsuke_agents", tag: "v0.0.1-alpha.4"}
   ]
 end
 ```

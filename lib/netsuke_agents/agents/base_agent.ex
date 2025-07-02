@@ -146,9 +146,9 @@ defmodule NetsukeAgents.BaseAgent do
     # Create a changeset using cast for regular fields
     changeset = struct(schema_module) |> cast(input, regular_fields)
 
-    # Add embedded fields using cast_embed
+    # Add embedded fields using cast_embed with required: true for proper validation
     changeset = Enum.reduce(embed_names, changeset, fn embed_name, acc ->
-      cast_embed(acc, embed_name)
+      cast_embed(acc, embed_name, required: true)
     end)
 
     # Apply schema validation

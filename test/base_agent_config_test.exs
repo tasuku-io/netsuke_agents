@@ -53,12 +53,15 @@ defmodule BaseAgentConfigTest do
 
   test "creates a BaseAgentConfig with an embedded map as output_schema" do
     schema = %{
-      "type" => "array",
-      "items" => %{
-        "type" => "embeds_many",
-        "schema" => %{
-          "name" => "string",
-          "count" => "integer"
+      dish_name: "string",
+      ingredients: %{
+        "type" => "array",
+        "items" => %{
+          "type" => "embeds_many",
+          "schema" => %{
+            "ingredient_name" => "string",
+            "ingredient_amount" => "integer"
+          }
         }
       }
     }
@@ -66,9 +69,30 @@ defmodule BaseAgentConfigTest do
     config = BaseAgentConfig.new(valid_attrs)
 
     # The normalized schema should be a map that SchemaFactory can handle
-    expected_schema_map = %{items: {:array, {:embeds_many, %{name: :string, count: :integer}}}}
+    expected_schema_map = %{dish_name: :string, ingredients: %{items: {:array, {:embeds_many, %{ingredient_name: :string, ingredient_amount: :integer}}}}}
 
     assert config.output_schema == SchemaFactory.create_schema(expected_schema_map)
+  end
+
+  test "fails to creates a BaseAgentConfig with an invalid embedded map as output_schema" do
+    schema = %{
+      dish_name: "string",
+      ingredients_list: %{
+        "type" => "array",
+        "items" => %{
+          "type" => "wrong_type",
+          "schema" => %{
+            "ingredient_name" => "string",
+            "ingredient_amount" => "integer"
+          }
+        }
+      }
+    }
+    valid_attrs = valid_config_attributes(%{output_schema: schema})
+
+    assert_raise ArgumentError, ~r/unknown type :wrong_type for field :ingredients/, fn ->
+      BaseAgentConfig.new(valid_attrs)
+    end
   end
 
   test "creates a BaseAgentConfig with a Ecto types as input_schema" do

@@ -5,14 +5,14 @@ Application.ensure_all_started(:jason)
 IO.puts("""
 === 🤖 Netsuke Custom I/O Schemas Example ===
 Input Schema: %{
-  "type" => "array",
-  "items" => %{
-    "type" => "embeds_many",
-    "schema" => %{
-      "dish_name" => "string"
-    }
-  }
-}
+  dish_name: "string",
+  extra_information: %{
+    "type" => "array",
+    "items" => %{
+      "type" => "embeds_many",
+      "schema" => %{
+        "level" => "string"
+    }}}}
 ---
 Output Schema: {:array, {:embeds_many, %{
     english_name: :string,
@@ -43,19 +43,34 @@ output_schema = %{
   steps: {:array, {:embeds_many, %{step_number: :integer, description: :string}}}
 }
 
-input_schema = %{ # Map format commonly used in databases
-  "type" => "array",
-  "items" => %{
-    "type" => "embeds_many",
-    "schema" => %{
-      "dish_name" => "string"
+# input_schema = %{
+#       dish_name: :string,
+#       extra_information: {
+#         :array, {
+#           :embeds_many, %{
+#             level: :string
+#           }
+#         }
+#       }
+#     }
+
+input_schema = %{
+      dish_name: "string",
+      extra_information: %{
+        "type" => "array",
+        "items" => %{
+          "type" => "embeds_many",
+          "schema" => %{
+            "level" => "string"
+          }
+        }
+      }
     }
-  }
-}
+
 
 custom_prompt = SystemPromptGenerator.new(
   background: ["Expert Japanese Chef with years of experience"],
-  steps: ["Understand the user's query", "Provide detailed information"],
+  steps: ["Understand the user's query", "prepare a response according to the difficulty level stated by the user", "Provide detailed information"],
   output_instructions: ["Respond with clear and concise information"]
 )
 
@@ -81,7 +96,8 @@ IO.puts("\n=== Processing Query ===")
 IO.puts("User: #{input}")
 
 # Process with first agent (Sushi Master)
-input = %{dish_name: input}
+# input = %{items: [%{dish_name: "okonomiyaki"}]}
+input = %{dish_name: "okonomiyaki", extra_information: [%{level: "beginner"}]}
 {:ok, _updated_agent, response} = BaseAgent.run(agent, input)
 
 IO.inspect(response, label: "\nAgent Response")
