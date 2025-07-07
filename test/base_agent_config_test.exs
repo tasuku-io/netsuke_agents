@@ -228,4 +228,24 @@ defmodule BaseAgentConfigTest do
     assert config.input_schema == SchemaFactory.create_schema(expected_input_map)
     assert config.output_schema == SchemaFactory.create_schema(expected_output_map)
   end
+
+  test "creates BaseAgentConfig with valid atom key map memory" do
+    initial_memory =
+      AgentMemory.new()
+      |> then(fn mem ->
+        AgentMemory.add_message(mem, "assistant", %{reply: "Hello! Anon-san How can I assist you today?"})
+      end)
+    valid_attrs = valid_config_attributes(%{memory: initial_memory})
+    assert BaseAgentConfig.new(valid_attrs)
+  end
+
+  test "creates BaseAgentConfig with valid string key map memory" do
+    initial_memory =
+      AgentMemory.new()
+      |> then(fn mem ->
+        AgentMemory.add_message(mem, "assistant", %{"reply" => "Hello! Anon-san How can I assist you today?"})
+      end)
+    valid_attrs = valid_config_attributes(%{memory: initial_memory})
+    assert BaseAgentConfig.new(valid_attrs)
+  end
 end
