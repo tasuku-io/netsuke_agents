@@ -5,6 +5,7 @@ defmodule BaseAgentTest do
   import NetsukeAgents.AgentsFixtures
 
   alias NetsukeAgents.BaseAgent
+  alias NetsukeAgents.AgentMemory
 
   test "creates a new BaseAgent with a valid configuration" do
     config = base_agent_config_fixture()
@@ -342,5 +343,33 @@ defmodule BaseAgentTest do
 
     assert error_message.message =~ "Input validation failed"
     assert error_message.message =~ "ingredient_name: can't be blank"
+  end
+
+  test "creates a BaseAgent with a valid atom key memory in config" do
+    initial_memory =
+      AgentMemory.new()
+      |> then(fn mem ->
+        AgentMemory.add_message(mem, "assistant", %{reply: "Hello! Anon-san How can I assist you today?"})
+      end)
+    valid_attrs = valid_config_attributes(%{memory: initial_memory})
+    config = base_agent_config_fixture(valid_attrs)
+
+    agent = BaseAgent.new("test_agent", config)
+
+    assert agent.memory == initial_memory
+  end
+
+  test "creates a BaseAgent with a valid string key memory in config" do
+    initial_memory =
+      AgentMemory.new()
+      |> then(fn mem ->
+        AgentMemory.add_message(mem, "assistant", %{"reply" => "Hello! Anon-san How can I assist you today?"})
+      end)
+    valid_attrs = valid_config_attributes(%{memory: initial_memory})
+    config = base_agent_config_fixture(valid_attrs)
+
+    agent = BaseAgent.new("test_agent", config)
+
+    assert agent.memory == initial_memory
   end
 end

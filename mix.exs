@@ -33,6 +33,7 @@ defmodule NetsukeAgents.MixProject do
       {:uuid, "~> 1.0"},
       {:instructor, "~> 0.1.0"},
       {:dotenvy, "~> 1.0.0"},
+      {:luerl, ">= 1.4.0"},
 
       # Dev/test dependencies
       {:ex_doc, "~> 0.31", only: :dev, runtime: false}
