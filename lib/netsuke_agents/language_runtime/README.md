@@ -13,7 +13,7 @@ This document defines the architecture and components of a secure, programmable 
 * Expose a limited set of safe, typed tools to Lua.
 * Treat variables as memory and code as the execution graph.
 * Allow chaining of tools, loops, and branching logic.
-* Support calling other LLMs (inception) with safeguards.
+* Support calling external APIs with safeguards.
 
 ---
 
@@ -37,28 +37,25 @@ This document defines the architecture and components of a secure, programmable 
 * Calls `run(context)` inside the Luerl VM.
 * Converts the returned Lua table back into Elixir.
 
-### 3. Tool Bindings (via `NetsukeAgents.ToolRegistry`)
+### 3. Tool Bindings (via `NetsukeAgents.ToolRouter`)
 
 Each tool exposes a function in Lua with the following signature:
 
 ```lua
-result = tool_name(params)
+result = tool_namespace.function_name(params)
 ```
 
-Where `params` is a Lua table.
+**Currently Available Tools:**
 
-Available tools:
+* `http.get(url)` → Binary response body or error string
+* `json.decode(json_string)` → Lua table or error string
 
-* `query_db(params)` → List of maps
-* `fetch_url(urls, batch)` → Map of URL to binary
-* `send_email(to, subject, body, attachments)` → Delivery status
-* `transform_data(input, template, format)` → String
-* `call_llm(prompt)` → String (text output from external LLM)
+**Security Features:**
 
-All tools must:
-
-* Be pure functions from input to output
-* Return errors in predictable structure (e.g., `{error = "reason"}`)
+* URL validation with allowlist of safe hosts
+* JSON parsing with automatic data simplification
+* Error handling returns descriptive strings instead of crashing
+* All tool calls are logged and can be audited
 
 ### 4. Context as Memory
 
@@ -67,7 +64,9 @@ All tools must:
 * Agent can read/write to context like:
 
 ```lua
-context["users"] = query_db({...})
+context["users"] = http.get("https://api.example.com/users")
+local data = json.decode(context["users"])
+context["processed_data"] = data
 ```
 
 ---
@@ -76,53 +75,181 @@ context["users"] = query_db({...})
 
 1. User sends a task to the system.
 2. Planner agent returns a Lua function `run(context)` as string.
-3. `LuaExecutor` loads the code in a new Luerl environment.
-4. Tool functions are bound into the Lua environment.
-5. `run(context)` is invoked with initial context.
-6. Result is returned as an Elixir map.
+3. `LuaExecutor.execute/3` creates a new sandboxed Luerl environment.
+4. Tool functions are bound into the Lua environment via `ToolRouter`.
+5. Input context is converted from Elixir map to Lua table.
+6. `run(context)` is invoked with the converted context.
+7. Result is converted back to Elixir map and returned.
 
 ---
 
 ## Safety Model
 
-* No access to `os`, `io`, `require`, `load`, or system calls.
-* All tool calls are namespaced and whitelisted.
-* Execution time and memory can be bounded per run.
-* Optional: Audit log of all inputs/outputs and tool invocations.
+### Security Restrictions
+
+* **No dangerous globals**: `os`, `io`, `require`, `load`, `dofile`, `loadfile`, `getfenv`, `setfenv`, `debug` are removed
+* **No _G manipulation**: Direct and obfuscated access to global table is blocked
+* **No metaprogramming**: `getmetatable`, `rawget` access patterns are restricted
+* **Pattern detection**: Advanced regex patterns detect obfuscation attempts
+
+### Runtime Limits
+
+* **Execution timeout**: Default 30 seconds (configurable)
+* **Memory limits**: Default 10MB (configurable)
+* **Circular reference protection**: Automatic detection and handling
+* **Host allowlist**: Only approved domains can be accessed via HTTP
+
+### Validation
+
+* **Program validation**: Checks for required `run()` function and dangerous patterns
+* **URL validation**: Ensures only safe, allowed hosts are accessible
+* **Data simplification**: Complex nested structures are automatically simplified
 
 ---
 
-## Extensions (Future)
+## Current Implementation Status
 
-* Lua linting and static validation pre-run.
-* Plan visualization as computation graph.
-* Tool introspection: expose schema metadata to agent.
-* Multi-agent workflows using `call_agent(name, context)`.
-* Error propagation + step retries.
+### ✅ Implemented Features
+
+- [x] Secure Lua sandbox with Luerl
+- [x] HTTP GET requests via `http.get()`
+- [x] JSON parsing via `json.decode()`
+- [x] Comprehensive security validation
+- [x] Context conversion between Elixir and Lua
+- [x] Timeout and memory limiting
+- [x] Circular reference detection
+- [x] URL allowlist security
+- [x] Tool call error handling
+
+### 🚧 Planned Extensions
+
+- [ ] `json.encode(lua_table)` → JSON string
+- [ ] Database query tools: `query_db(params)`
+- [ ] Email sending: `send_email(to, subject, body, attachments)`
+- [ ] Data transformation: `transform_data(input, template, format)`
+- [ ] LLM integration: `call_llm(prompt)`
+- [ ] Multi-agent workflows: `call_agent(name, context)`
+- [ ] Plan visualization as computation graph
+- [ ] Tool introspection with schema metadata
 
 ---
 
-## Example Lua Plan
+## Example Usage
+
+### Basic HTTP + JSON Processing
 
 ```lua
 function run(context)
-  local users = query_db({table = "users", where = "age > 30"})
-  local urls = {}
-  for i, user in ipairs(users) do
-    table.insert(urls, user.profile_image_url)
-  end
-
-  local images = fetch_url(urls, true)
-  local body = transform_data(users, "summary_email", "html")
-  local receipt = send_email("admin@company.com", "User Summary", body, images)
-
-  context["receipt"] = receipt
+  -- Fetch data from API
+  local response = http.get("https://pokeapi.co/api/v2/pokemon/bulbasaur/")
+  
+  -- Parse JSON response
+  local pokemon_data = json.decode(response)
+  
+  -- Extract specific fields
+  context["pokemon_id"] = pokemon_data["id"]
+  context["pokemon_name"] = pokemon_data["name"]
+  context["pokemon_height"] = pokemon_data["height"]
+  
   return context
 end
 ```
+
+### Agent Integration Example
+
+```elixir
+# Agent generates Lua code and context
+response = %{
+  lua_code: """
+  function run(context)
+    local response = http.get(context["api_url"])
+    local data = json.decode(response)
+    context["result"] = data[context["target_field"]]
+    return context
+  end
+  """,
+  context: %{
+    "api_url" => "https://pokeapi.co/api/v2/pokemon/bulbasaur/",
+    "target_field" => "id"
+  }
+}
+
+# Execute in sandbox
+{:ok, result} = LuaExecutor.execute(response.lua_code, response.context)
+# => %{"api_url" => "...", "target_field" => "id", "result" => 1}
+```
+
+---
+
+## API Reference
+
+### `NetsukeAgents.LuaExecutor`
+
+#### `execute(lua_code, context \\ %{}, opts \\ [])`
+
+Executes Lua code in a sandboxed environment.
+
+**Parameters:**
+- `lua_code`: String containing Lua code with `run(context)` function
+- `context`: Elixir map converted to Lua table
+- `opts`: Keyword list with `:timeout` and `:memory_limit`
+
+**Returns:**
+- `{:ok, result_map}` on success
+- `{:error, reason}` on failure
+
+#### `validate_program(lua_code)`
+
+Validates Lua code for security compliance.
+
+**Returns:**
+- `:ok` if safe
+- `{:error, reason}` if dangerous patterns detected
+
+### `NetsukeAgents.ToolRouter`
+
+#### `http_get(url)`
+
+Makes HTTP GET request to allowed URL.
+
+#### `json_decode(json_string)`
+
+Parses JSON with automatic data simplification.
+
+---
+
+## Security Considerations
+
+### Allowed Hosts
+
+Current allowlist includes testing APIs:
+- `jsonplaceholder.typicode.com`
+- `httpbin.org`
+- `api.github.com`
+- `pokeapi.co`
+- `*.local` domains
+
+### Data Simplification
+
+JSON responses are automatically simplified to prevent:
+- Circular references
+- Overly complex nested structures
+- Large arrays (>5 elements)
+- Non-essential fields in objects
+
+### Pattern Detection
+
+The validator detects various security bypass attempts:
+- Direct dangerous function calls
+- `_G` table manipulation
+- Variable-based obfuscation
+- String concatenation attacks
+- Metatable manipulation
 
 ---
 
 ## Conclusion
 
-This system treats agents as safe, intelligent code generators and executes their plans inside a deterministic Lua sandbox. It blends programmable autonomy with runtime safety and makes code the lingua franca for AI workflows.
+This system provides a secure, practical implementation for executing AI-generated Lua programs. It balances programmable autonomy with runtime safety, making it suitable for production use cases where agents need to interact with external APIs while maintaining security boundaries.
+
+The current implementation focuses on HTTP/JSON workflows, with a clear path for extending to additional tool categories while maintaining the same security

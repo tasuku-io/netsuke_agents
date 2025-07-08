@@ -449,8 +449,76 @@ defmodule NetsukeAgents.LuaExecutor do
   end
 
   defp add_tool_bindings(state) do
-    # TODO: Implement tool bindings with ToolRegistry
-    # For now, return the state unchanged
-    state
+    # Define Elixir functions that will be called from Lua
+    http_get_func = fn
+      [url], lua_state when is_binary(url) ->
+        result = NetsukeAgents.ToolRouter.http_get(url)
+        {[result], lua_state}
+      [_], lua_state ->
+        {["Invalid URL parameter"], lua_state}
+      [], lua_state ->
+        {["URL parameter required"], lua_state}
+    end
+
+    json_decode_func = fn
+      [json_string], lua_state when is_binary(json_string) ->
+        result = NetsukeAgents.ToolRouter.json_decode(json_string)
+        # Convert the result to Lua table using Luerl's encode function
+        case result do
+          data when is_map(data) ->
+            # Use Luerl's encode to properly convert the map to a Lua table
+            {encoded_data, new_state} = :luerl.encode(data, lua_state)
+            {[encoded_data], new_state}
+          _ ->
+            {[result], lua_state}
+        end
+      [_], lua_state ->
+        {["Invalid JSON parameter"], lua_state}
+      [], lua_state ->
+        {["JSON string parameter required"], lua_state}
+    end
+
+    try do
+      # First, create empty tables
+      case :luerl.do("http = {}; json = {}", state) do
+        {:ok, _, state1} ->
+          # Encode the functions properly for Luerl
+          {encoded_http_func, state2} = :luerl.encode(http_get_func, state1)
+          {encoded_json_func, state3} = :luerl.encode(json_decode_func, state2)
+
+          # Now set the actual functions using the correct Luerl API
+          case :luerl.set_table_keys(["http", "get"], encoded_http_func, state3) do
+            {:ok, state4} ->
+              case :luerl.set_table_keys(["json", "decode"], encoded_json_func, state4) do
+                {:ok, final_state} -> final_state
+                {:error, _} -> state4
+              end
+            {:error, _} -> state3
+          end
+        {:error, _} -> state
+      end
+
+    rescue
+      _error ->
+        # Fallback: create empty tables with error messages
+        lua_setup = """
+        http = {
+          get = function(url)
+            error("http.get is not yet implemented")
+          end
+        }
+
+        json = {
+          decode = function(json_string)
+            error("json.decode is not yet implemented")
+          end
+        }
+        """
+
+        case :luerl.do(lua_setup, state) do
+          {:ok, _, new_state} -> new_state
+          _ -> state
+        end
+    end
   end
 end

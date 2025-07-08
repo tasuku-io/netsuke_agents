@@ -16,6 +16,7 @@ Netsuke Agents provides a robust framework for creating and managing agent-based
 - **Type Safety** - Strong typing with comprehensive validation rules
 - **Multi-Agent Workflows** - Chain agents together for complex reasoning tasks
 - **Process Architecture** - Each agent runs as an independent process for fault tolerance and concurrency
+- **🆕 Language Runtime** - Secure Lua execution environment for programmable agent plans
 
 ## Installation
 
@@ -51,7 +52,9 @@ def start(_type, _args) do
     NetsukeAgents.Repo,
     {Registry, keys: :unique, name: NetsukeAgents.AgentRegistry},
     {Task.Supervisor, name: NetsukeAgents.TaskSupervisor},
-    NetsukeAgents.AgentSupervisor
+    NetsukeAgents.AgentSupervisor,
+    # For Language Runtime HTTP tools
+    {Finch, name: NetsukeAgents.Finch}
   ]
   
   opts = [strategy: :one_for_one, name: MyApp.Supervisor]
@@ -94,6 +97,105 @@ sushi_master_config = BaseAgentConfig.new([
 ```
 
 A dynamic schema module will be generated from the output_schema map of field definitions by `schema_factory.ex`.
+
+## Language Runtime
+
+Netsuke Agents includes a secure **Language Runtime** system that allows agents to generate and execute Lua programs in a sandboxed environment. This enables programmable agent plans with safe access to external APIs.
+
+### Key Features
+
+- **Secure Sandbox**: Lua execution via Luerl with dangerous functions disabled
+- **Tool System**: Safe HTTP requests and JSON processing
+- **Agent Integration**: Agents can generate executable Lua plans
+- **Security Model**: URL allowlists, timeout limits, and pattern detection
+
+### Basic Language Runtime Usage
+
+```elixir
+alias NetsukeAgents.LuaExecutor
+
+# Agent-generated Lua code
+lua_code = """
+function run(context)
+  -- Fetch data from API
+  local response = http.get("https://pokeapi.co/api/v2/pokemon/bulbasaur/")
+  
+  -- Parse JSON response
+  local pokemon_data = json.decode(response)
+  
+  -- Extract specific fields
+  context["pokemon_id"] = pokemon_data["id"]
+  context["pokemon_name"] = pokemon_data["name"]
+  
+  return context
+end
+"""
+
+# Execute in sandbox
+{:ok, result} = LuaExecutor.execute(lua_code, %{})
+# => %{"pokemon_id" => 1, "pokemon_name" => "bulbasaur"}
+```
+
+### Creating a Code-Generating Agent
+
+```elixir
+alias NetsukeAgents.Components.SystemPromptGenerator
+
+# Configure agent to generate Lua programs
+lua_agent_prompt = SystemPromptGenerator.new(
+  background: [
+    "You are a Lua Task Builder agent.",
+    "Generate Lua functions that can be safely executed in a sandboxed environment.",
+    "You have access to http.get() and json.decode() tools."
+  ],
+  steps: [
+    "Read and understand the user's instruction.",
+    "Generate Lua code with a function named `run(context)`.",
+    "Use only safe Lua syntax and available tools.",
+    "Return both the lua_code and context as an Elixir map."
+  ],
+  output_instructions: [
+    "Output must be a map with `lua_code` and `context` keys.",
+    "The lua_code must define `function run(context)` and return the context.",
+    "Use triple-quoted strings for lua_code to preserve formatting."
+  ]
+)
+
+lua_agent_config = BaseAgentConfig.new([
+  system_prompt_generator: lua_agent_prompt,
+  output_schema: %{
+    lua_code: :string,
+    context: :map
+  }
+])
+
+lua_agent = BaseAgent.new("lua-generator", lua_agent_config)
+
+# Generate executable code
+{:ok, _agent, response} = BaseAgent.run(lua_agent, %{
+  chat_message: "Write a program that fetches Pokemon data from PokeAPI"
+})
+
+# Execute the generated code
+{:ok, result} = LuaExecutor.execute(response.lua_code, response.context)
+```
+
+### Available Tools
+
+The Language Runtime provides these safe tools for Lua programs:
+
+- **`http.get(url)`** - HTTP GET requests to allowlisted domains
+- **`json.decode(json_string)`** - Parse JSON into Lua tables
+
+### Security Features
+
+- **Sandboxed Execution**: No access to `os`, `io`, `require`, or other dangerous functions
+- **URL Allowlist**: Only approved domains can be accessed
+- **Timeout Protection**: Configurable execution limits (default: 30 seconds)
+- **Memory Limits**: Configurable memory constraints (default: 10MB)
+- **Pattern Detection**: Advanced security validation to prevent bypass attempts
+
+For detailed documentation, see the [Language Runtime README](lib/netsuke_agents/language_runtime/README.md).
 
 ## Schema Factory
 
