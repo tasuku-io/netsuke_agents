@@ -588,7 +588,6 @@ defmodule NetsukeAgents.LuaExecutorTest do
   end
 
   describe "cyclic reference detection" do
-      @tag :skip
       test "handles self-referencing tables" do
         lua_code = """
         function run(context)
@@ -609,7 +608,6 @@ defmodule NetsukeAgents.LuaExecutorTest do
         end
       end
 
-      @tag :skip
       test "handles mutual references between tables" do
         lua_code = """
         function run(context)
@@ -632,7 +630,6 @@ defmodule NetsukeAgents.LuaExecutorTest do
         end
       end
 
-      @tag :skip
       test "handles deeply circular structures" do
         lua_code = """
         function run(context)
@@ -1090,7 +1087,6 @@ defmodule NetsukeAgents.LuaExecutorTest do
   end
 
   describe "data conversion edge cases" do
-    @tag :skip
     test "handles cyclic table references" do
       # Test that conversion doesn't get stuck in infinite loops
       lua_code = """

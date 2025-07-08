@@ -87,10 +87,7 @@ defmodule NetsukeAgents.LuaExecutor do
     # Basic validation - check for required run function
     if String.contains?(lua_code, "function run(") do
       # Check for dangerous patterns - both direct and obfuscated
-      case check_dangerous_patterns(lua_code) do
-        :ok -> :ok
-        {:error, reason} -> {:error, reason}
-      end
+      check_dangerous_patterns(lua_code)
     else
       {:error, "Lua code must contain a 'run' function"}
     end
@@ -251,9 +248,9 @@ defmodule NetsukeAgents.LuaExecutor do
       {table_ref = {:tref, _}, lua_state} ->
         # Table reference with its state - use the provided state
         extract_table_contents(table_ref, lua_state)
-      {:tref, _} = table_ref ->
+      {:tref, _} = _table_ref ->
         # Standalone table reference - try with new state (may fail)
-        extract_table_contents(table_ref)
+        {:error, "Cannot extract table without state"}
       _ ->
         # Primitive value - return as-is
         {:ok, lua_data}
@@ -270,26 +267,6 @@ defmodule NetsukeAgents.LuaExecutor do
     end
   end
 
-  # Extract contents from a table reference
-  defp extract_table_contents(table_ref) do
-    with {:ok, state} <- :luerl.init(),
-         {:ok, state} <- set_temp_table(table_ref, state),
-         {:ok, contents} <- extract_table_data(state) do
-      {:ok, contents}
-    else
-      error -> {:error, "Failed to extract table: #{inspect(error)}"}
-    end
-  end
-
-  defp extract_table_contents(table_ref, lua_state) do
-    with {:ok, state} <- set_temp_table(table_ref, lua_state),
-         {:ok, contents} <- extract_table_data(state) do
-      {:ok, contents}
-    else
-      error -> {:error, "Failed to extract table: #{inspect(error)}"}
-    end
-  end
-
   # Set the table reference as a global variable so we can introspect it
   defp set_temp_table(table_ref, lua_state) do
     try do
@@ -302,18 +279,31 @@ defmodule NetsukeAgents.LuaExecutor do
     end
   end
 
-  # Extract table data using Lua introspection
-  defp extract_table_data(lua_state) do
-    # Use a simpler approach - iterate key by key using next()
-    try do
-      extract_all_pairs(lua_state, %{}, nil)
-    rescue
-      error -> {:error, "Exception extracting: #{inspect(error)}"}
+  # Extract table contents with circular reference detection
+  defp extract_table_contents(table_ref, lua_state, visited \\ MapSet.new()) do
+    # Check if we've already seen this table reference
+    table_id = extract_table_id(table_ref)
+
+    if MapSet.member?(visited, table_id) do
+      # Circular reference detected - return a placeholder
+      {:ok, %{"__circular_ref" => table_id}}
+    else
+      updated_visited = MapSet.put(visited, table_id)
+
+      with {:ok, state} <- set_temp_table(table_ref, lua_state),
+           {:ok, contents} <- extract_all_pairs(state, %{}, nil, updated_visited) do
+        {:ok, contents}
+      else
+        error -> {:error, "Failed to extract table: #{inspect(error)}"}
+      end
     end
   end
 
-  # Recursively extract key-value pairs using next()
-  defp extract_all_pairs(lua_state, acc_map, prev_key) do
+  # Extract a unique identifier from the table reference
+  defp extract_table_id({:tref, id}), do: id
+
+  # Extract all key-value pairs from the temp_table with circular reference detection
+  defp extract_all_pairs(lua_state, acc_map, prev_key, visited) do
     next_code = case prev_key do
       nil -> "return next(temp_table)"
       key -> "return next(temp_table, #{format_lua_value(key)})"
@@ -327,14 +317,14 @@ defmodule NetsukeAgents.LuaExecutor do
         # Got a key-value pair, convert value if needed
         elixir_value = case value do
           {:tref, _} ->
-            case extract_table_contents(value, state) do
+            case extract_table_contents(value, state, visited) do
               {:ok, nested} -> nested
               _ -> value
             end
           _ -> value
         end
         new_map = Map.put(acc_map, key, elixir_value)
-        extract_all_pairs(state, new_map, key)
+        extract_all_pairs(state, new_map, key, visited)
       {:ok, [], _state} ->
         # Empty table
         {:ok, %{}}
