@@ -57,7 +57,7 @@ defmodule NetsukeAgents.BaseAgentConfig do
 
   defstruct [
     :client,
-    :system_prompt,
+    :system_prompt,  # TODO: eveluate if this is being used
     model: "gpt-4o-mini",
     memory: AgentMemory.new(),
     system_role: "system",

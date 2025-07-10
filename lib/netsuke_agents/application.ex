@@ -15,7 +15,8 @@ defmodule NetsukeAgents.Application do
       NetsukeAgents.Repo,
       {Registry, keys: :unique, name: NetsukeAgents.AgentRegistry},
       {Task.Supervisor, name: NetsukeAgents.TaskSupervisor},
-      NetsukeAgents.AgentSupervisor
+      NetsukeAgents.AgentSupervisor,
+      {Finch, name: NetsukeAgents.Finch}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

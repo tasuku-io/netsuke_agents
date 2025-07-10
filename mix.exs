@@ -4,7 +4,7 @@ defmodule NetsukeAgents.MixProject do
   def project do
     [
       app: :netsuke_agents,
-      version: "0.0.1-alpha.4",
+      version: "0.0.1-alpha.5",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -33,6 +33,8 @@ defmodule NetsukeAgents.MixProject do
       {:uuid, "~> 1.0"},
       {:instructor, "~> 0.1.0"},
       {:dotenvy, "~> 1.0.0"},
+      {:luerl, ">= 1.4.0"},
+      {:finch, "~> 0.20.0"},
 
       # Dev/test dependencies
       {:ex_doc, "~> 0.31", only: :dev, runtime: false}

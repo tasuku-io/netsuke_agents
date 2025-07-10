@@ -47,7 +47,7 @@ config = BaseAgentConfig.new([
 # Initialize the agent
 agent = BaseAgent.new("console-agent", config)
 
-IO.inspect(agent, label: "Initialized Agent")
+# IO.inspect(agent, label: "Initialized Agent")
 
 # Show initial system prompt and message
 IO.puts("🧠 Agent: Hello! Anon-san How can I assist you today?")
@@ -59,6 +59,7 @@ loop = fn loop, agent ->
   if user_input in ["/exit", "/quit"] do
     IO.puts("Exiting chat...")
   else
+    IO.inspect(agent.memory, label: "Current Agent Memory")
     input = %{chat_message: user_input} # Validate against input schema
     {:ok, updated_agent, response} = BaseAgent.run(agent, input)
     # IO.inspect(updated_agent.memory, label: "Memory")
