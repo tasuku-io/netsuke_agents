@@ -115,15 +115,9 @@ defmodule NetsukeAgents.ToolRouter do
     end
   end
 
-  defp allowed_host?(host) do # TODO: Set this up at agent or user level
-    # For now, allow common testing APIs
-    # In production, you'd want a more restrictive allowlist
-    allowed_hosts = [
-      "jsonplaceholder.typicode.com",
-      "httpbin.org",
-      "api.github.com",
-      "pokeapi.co"
-    ]
+  defp allowed_host?(host) do
+    allowed_hosts = Application.get_env(:netsuke_agents, :allowed_hosts, [])
+    IO.inspect(allowed_hosts, label: "Allowed Hosts")
 
     host in allowed_hosts or String.ends_with?(host, ".local")
   end
