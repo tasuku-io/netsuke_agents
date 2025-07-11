@@ -10,6 +10,22 @@ Type '/exit' to quit.
 
 alias NetsukeAgents.{BaseAgent, BaseAgentConfig, AgentMemory}
 alias NetsukeAgents.Components.SystemPromptGenerator
+alias NetsukeAgents.Components.SystemPromptContextProvider
+
+# LinkedIn Access Token Context Provider
+defmodule LinkedInTokenProvider do
+  use NetsukeAgents.Components.SystemPromptContextProvider
+
+  @impl true
+  def get_info do
+    """
+    LinkedIn API Access Token: AQXdSP_W41_UPs5ioT_t8HESyODB4FqbkJ8LrV_5mff4-2U9IeiPiS8EBvBiNFuPjqhX5gZH7iU
+
+    This token can be used for LinkedIn API requests that require authentication.
+    Use this token in the Authorization header as: "Bearer AQXdSP_W41_UPs5ioT_t8HESyODB4FqbkJ8LrV_5mff4-2U9IeiPiS8EBvBiNFuPjqhX5gZH7iU"
+    """
+  end
+end
 
 # Set up initial memory for agent
 initial_memory =
@@ -24,8 +40,7 @@ custom_system_prompt = SystemPromptGenerator.new(
       "Your job is to generate a Lua function named `run(context)` that can be safely executed in a sandboxed environment.",
       "You also generate a corresponding Elixir map (`context`) that will be converted into a Lua table and passed into the `run` function.",
       "Your Lua code will be executed using the Luerl runtime, which does not support unsafe global operations.",
-      "The environment supports dynamic tool calls that allow safe access to external functionality.",
-      "Linked in access token is abcdef"
+      "The environment supports dynamic tool calls that allow safe access to external functionality."
     ],
     steps: [
       "Read and understand the instruction provided by the user.",
@@ -50,8 +65,16 @@ custom_system_prompt = SystemPromptGenerator.new(
       "Tool calls will be automatically intercepted and safely executed by the runtime environment.",
       "Validate that your generated context includes all variables used in the Lua function.",
       "The value of `lua_code` must be returned as a triple-quoted Elixir string using ~S\"\"\"...\"\"\" to preserve line breaks."
-    ]
+    ],
+    context_providers: %{
+      "linkedin_token" => %{
+        title: "LinkedIn API Access Token",
+        provider: LinkedInTokenProvider
+      }
+    }
   )
+
+IO.inspect(custom_system_prompt, label: "Custom System Prompt")
 
 # Create config for the agent
 config = BaseAgentConfig.new([
