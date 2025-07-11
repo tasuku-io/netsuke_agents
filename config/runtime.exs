@@ -3,6 +3,24 @@ import Dotenvy
 
 source!(".env")
 
+run_supervised = System.get_env("RUN_SUPERVISED") ||
+  try do
+    env!("RUN_SUPERVISED")
+  rescue
+    _ -> nil
+  end
+
+if run_supervised do
+  IO.inspect(run_supervised, label: "Running in supervised mode")
+  config :netsuke_agents, NetsukeAgents.Repo,
+    database: "netsuke_agents_dev",
+    username: "luis",
+    password: "postgres",
+    hostname: "localhost"
+
+  config :netsuke_agents, ecto_repos: [NetsukeAgents.Repo]
+end
+
 api_key = case System.get_env("OPENAI_API_KEY") do
   nil ->
     env!("OPENAI_API_KEY")
