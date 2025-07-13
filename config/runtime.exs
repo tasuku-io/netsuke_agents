@@ -10,7 +10,7 @@ run_supervised = System.get_env("RUN_SUPERVISED") ||
     _ -> nil
   end
 
-if run_supervised == true do
+if run_supervised == "true" do
   config :netsuke_agents, NetsukeAgents.Repo,
     database: "netsuke_agents_dev",
     username: "luis",
