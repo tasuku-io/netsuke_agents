@@ -11,13 +11,18 @@ defmodule NetsukeAgents.Application do
     #   # Starts a worker by calling: NetsukeAgents.Worker.start_link(arg)
     #   # {NetsukeAgents.Worker, arg}
     # ]
-    children = [
-      NetsukeAgents.Repo,
+    base_children = [
       {Registry, keys: :unique, name: NetsukeAgents.AgentRegistry},
       {Task.Supervisor, name: NetsukeAgents.TaskSupervisor},
       NetsukeAgents.AgentSupervisor,
       {Finch, name: NetsukeAgents.Finch}
     ]
+
+    # Only add Repo if ecto_repos is configured
+    children = case Application.get_env(:netsuke_agents, :ecto_repos, []) do
+      [] -> base_children
+      [_|_] -> [NetsukeAgents.Repo | base_children]
+    end
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
