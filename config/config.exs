@@ -1,9 +1,3 @@
-import Config
-
-# config :netsuke_agents, NetsukeAgents.Repo,
-#   database: "netsuke_agents_dev",
-#   username: "luis",
-#   password: "postgres",
-#   hostname: "localhost"
-
-# config :netsuke_agents, ecto_repos: [NetsukeAgents.Repo]
+# Import environment specific config. This must remain at the bottom
+# of this file so it overrides the configuration defined above.
+# import_config "#{config_env()}.exs"

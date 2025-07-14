@@ -32,12 +32,11 @@ defmodule NetsukeAgents.MixProject do
       {:jason, "~> 1.4"},
       {:uuid, "~> 1.0"},
       {:instructor, "~> 0.1.0"},
-      {:dotenvy, "~> 1.0.0"},
       {:luerl, ">= 1.4.0"},
       {:finch, "~> 0.20.0"},
 
       # Dev/test dependencies
-      {:ex_doc, "~> 0.31", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.31", only: :dev, runtime: false},
     ]
   end
 

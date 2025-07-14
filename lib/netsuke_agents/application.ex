@@ -29,4 +29,28 @@ defmodule NetsukeAgents.Application do
     opts = [strategy: :one_for_one, name: NetsukeAgents.Supervisor]
     Supervisor.start_link(children, opts)
   end
+
+  @doc """
+  Gets the OpenAI API key from application config.
+  Falls back to system environment if not configured.
+  """
+  def openai_api_key do
+    Application.get_env(:instructor, :openai)[:api_key] ||
+      System.get_env("OPENAI_API_KEY") ||
+      raise "OPENAI_API_KEY not configured"
+  end
+
+  @doc """
+  Gets the list of allowed hosts for HTTP requests.
+  """
+  def allowed_hosts do
+    Application.get_env(:netsuke_agents, :allowed_hosts, [])
+  end
+
+  @doc """
+  Checks if the application should run supervised (with Repo).
+  """
+  def supervised? do
+    System.get_env("RUN_SUPERVISED", "false") == "true"
+  end
 end
