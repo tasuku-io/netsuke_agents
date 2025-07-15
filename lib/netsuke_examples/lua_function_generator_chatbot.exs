@@ -10,7 +10,6 @@ Type '/exit' to quit.
 
 alias NetsukeAgents.{BaseAgent, BaseAgentConfig, AgentMemory}
 alias NetsukeAgents.Components.SystemPromptGenerator
-alias NetsukeAgents.Components.SystemPromptContextProvider
 
 # LinkedIn Access Token Context Provider
 defmodule LinkedInTokenProvider do
@@ -56,7 +55,8 @@ custom_system_prompt = SystemPromptGenerator.new(
       "Always return your result as a map with two keys: `lua_code` and `context`."
     ],
     output_instructions: [
-      "Your output must be a valid Elixir map with this schema: `%{lua_code: string, context: map}`.",
+      "The value named response on your output should be a short description of the operation performed.",
+      "The value named operation on your output must be a valid Elixir map with this schema: `%{lua_code: string, context: map}`.",
       "The `lua_code` string must define `function run(context)` and return the modified context.",
       "The `context` must be a flat or nested map, ready to be serialized to a Lua table.",
       "Do not include any explanatory text, comments, or extra formatting—only the strict output data structure.",
@@ -80,8 +80,11 @@ IO.inspect(custom_system_prompt, label: "Custom System Prompt")
 config = BaseAgentConfig.new([
   memory: initial_memory,
   output_schema: %{
-    lua_code: :string,
-    context: :map
+    response: :string,
+    operation: %{
+      lua_code: :string,
+      context: :map
+    }
   },
   system_prompt_generator: custom_system_prompt
 ])
@@ -102,9 +105,11 @@ loop = fn loop, agent ->
     input = %{chat_message: user_input} # Validate against input schema
     {:ok, updated_agent, response} = BaseAgent.run(agent, input)
 
+    IO.puts("🤖 Response:")
+    IO.inspect(response.response)
     IO.puts("🤖 Context:")
-    IO.inspect(response.context)
-    IO.puts("🤖 Lua Code: \n#{response.lua_code}")
+    IO.inspect(response.operation.context)
+    IO.puts("🤖 Lua Code: \n#{response.operation.lua_code}")
     loop.(loop, updated_agent)
   end
 end
