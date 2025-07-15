@@ -58,7 +58,6 @@ defmodule NetsukeAgents.Application do
   Gets the list of allowed hosts for HTTP requests.
   """
   def allowed_hosts do
-    IO.inspect("pulling allowed hosts from wherever")
     Application.get_env(:netsuke_agents, :allowed_hosts) ||
       System.get_env("ALLOWED_HOSTS", "")
       |> String.split(",")

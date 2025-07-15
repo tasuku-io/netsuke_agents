@@ -43,6 +43,14 @@ defmodule BaseAgentConfigTest do
     assert config.output_schema == SchemaFactory.create_schema(schema)
   end
 
+  test "creates a BaseAgentConfig with embedded Ecto types as output_schema" do
+    schema = %{response: :string, operation: %{code: :string, context: :map}}
+    valid_attrs = valid_config_attributes(%{output_schema: schema})
+    config = BaseAgentConfig.new(valid_attrs)
+
+    assert config.output_schema == SchemaFactory.create_schema(schema)
+  end
+
   test "creates a BaseAgentConfig with a map as output_schema" do
     schema = %{"response" => "string"}
     valid_attrs = valid_config_attributes(%{output_schema: schema})

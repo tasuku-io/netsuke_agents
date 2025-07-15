@@ -137,6 +137,44 @@ defmodule NetsukeAgents.Factories.SchemaFactory do
 
           {[field_ast | fields_acc], [embed_ast | embeds_acc]}
 
+        embed_schema when is_map(embed_schema) ->
+          # Create embedded schema module
+          embed_module_name = :"#{parent_module_name}_#{field_name}_Embed"
+          embed_fields = for {embed_field_name, embed_field_type} <- embed_schema do
+            actual_type = map_field_type(embed_field_type)
+            quote do
+              field unquote(embed_field_name), unquote(actual_type)
+            end
+          end
+
+          embed_required_fields = Map.keys(embed_schema)
+
+          # Define embedded schema module
+          embed_ast = quote do
+            defmodule unquote(embed_module_name) do
+              use Ecto.Schema
+              import Ecto.Changeset
+
+              @primary_key false
+              embedded_schema do
+                unquote_splicing(embed_fields)
+              end
+
+              def changeset(embed, attrs) do
+                embed
+                |> cast(attrs, unquote(embed_required_fields))
+                |> validate_required(unquote(embed_required_fields))
+              end
+            end
+          end
+
+          # Create embeds_one field
+          field_ast = quote do
+            embeds_one unquote(field_name), unquote(embed_module_name)
+          end
+
+          {[field_ast | fields_acc], [embed_ast | embeds_acc]}
+
         _ ->
           # Regular field
           actual_type = map_field_type(field_type)
