@@ -7,6 +7,8 @@ defmodule NetsukeAgents.Application do
 
   @impl true
   def start(_type, _args) do
+    # Validate configuration at startup
+    validate_config!()
     # children = [
     #   # Starts a worker by calling: NetsukeAgents.Worker.start_link(arg)
     #   # {NetsukeAgents.Worker, arg}
@@ -30,12 +32,24 @@ defmodule NetsukeAgents.Application do
     Supervisor.start_link(children, opts)
   end
 
-  @doc """
-  Gets the OpenAI API key from application config.
-  Falls back to system environment if not configured.
-  """
-  def openai_api_key do
-    Application.get_env(:instructor, :openai)[:api_key] ||
+  defp validate_config! do
+    # Validate OpenAI API key
+    case openai_api_key() do
+      nil ->
+        raise """
+        OpenAI API key not configured. Set either:
+        - Environment variable: OPENAI_API_KEY
+        - Application config: config :instructor, openai: [api_key: "..."]
+        - Application config: config :netsuke_agents, api_key: "..."
+        """
+      _key ->
+        :ok
+    end
+  end
+
+  defp openai_api_key do
+    Application.get_env(:netsuke_agents, :api_key) ||
+      get_in(Application.get_env(:instructor, :openai, []), [:api_key]) ||
       System.get_env("OPENAI_API_KEY") ||
       raise "OPENAI_API_KEY not configured"
   end
@@ -44,7 +58,12 @@ defmodule NetsukeAgents.Application do
   Gets the list of allowed hosts for HTTP requests.
   """
   def allowed_hosts do
-    Application.get_env(:netsuke_agents, :allowed_hosts, [])
+    IO.inspect("pulling allowed hosts from wherever")
+    Application.get_env(:netsuke_agents, :allowed_hosts) ||
+      System.get_env("ALLOWED_HOSTS", "")
+      |> String.split(",")
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(&(&1 == ""))
   end
 
   @doc """
