@@ -216,8 +216,15 @@ defmodule NetsukeAgents.LuaExecutor do
 
   defp generate_lua_table_code(value), do: format_lua_value(value)
 
-  defp format_lua_key(atom) when is_atom(atom), do: to_string(atom)
-  defp format_lua_key(string) when is_binary(string), do: string
+  defp format_lua_key(atom) when is_atom(atom), do: "[\"#{to_string(atom)}\"]"
+  defp format_lua_key(string) when is_binary(string) do
+    # Check if the string is a valid Lua identifier
+    if Regex.match?(~r/^[a-zA-Z_][a-zA-Z0-9_]*$/, string) do
+      string
+    else
+      "[\"#{string}\"]"
+    end
+  end
   defp format_lua_key(value), do: "[#{format_lua_value(value)}]"
 
   defp format_lua_value(value) when is_binary(value), do: inspect(value)
@@ -460,6 +467,36 @@ defmodule NetsukeAgents.LuaExecutor do
         {["URL parameter required"], lua_state}
     end
 
+    http_post_func = fn
+      [url, options], lua_state when is_binary(url) ->
+        try do
+          # Convert Lua table to Elixir map
+          elixir_options = case options do
+            {:tref, _} ->
+              case lua_to_elixir(options, lua_state) do
+                {:ok, converted} -> converted
+                {:error, _} -> %{}
+              end
+            _ ->
+              %{}
+          end
+
+          result = NetsukeAgents.ToolRouter.http_post(url, elixir_options)
+          {[result], lua_state}
+        rescue
+          error ->
+            error_msg = "HTTP POST error: #{inspect(error)}"
+            {[error_msg], lua_state}
+        end
+      [url], lua_state when is_binary(url) ->
+        result = NetsukeAgents.ToolRouter.http_post(url, %{})
+        {[result], lua_state}
+      [_], lua_state ->
+        {["Invalid parameters"], lua_state}
+      [], lua_state ->
+        {["URL parameter required"], lua_state}
+    end
+
     json_decode_func = fn
       [json_string], lua_state when is_binary(json_string) ->
         result = NetsukeAgents.ToolRouter.json_decode(json_string)
@@ -478,22 +515,51 @@ defmodule NetsukeAgents.LuaExecutor do
         {["JSON string parameter required"], lua_state}
     end
 
+    json_encode_func = fn
+      [data], lua_state ->
+        try do
+          # Handle different types of Lua data
+          elixir_data = case data do
+            {:tref, _} ->
+              # It's a table reference, use our existing conversion
+              case lua_to_elixir(data, lua_state) do
+                {:ok, converted} -> converted
+                {:error, _} -> data
+              end
+            _ ->
+              # It's a primitive value or already converted
+              data
+          end
+
+          result = NetsukeAgents.ToolRouter.json_encode(elixir_data)
+          {[result], lua_state}
+        rescue
+          error ->
+            error_msg = "JSON encode error: #{inspect(error)}"
+            {[error_msg], lua_state}
+        end
+      [], lua_state ->
+        {["Data parameter required"], lua_state}
+    end
+
     try do
       # First, create empty tables
       case :luerl.do("http = {}; json = {}", state) do
         {:ok, _, state1} ->
           # Encode the functions properly for Luerl
-          {encoded_http_func, state2} = :luerl.encode(http_get_func, state1)
-          {encoded_json_func, state3} = :luerl.encode(json_decode_func, state2)
+          {encoded_http_get_func, state2} = :luerl.encode(http_get_func, state1)
+          {encoded_http_post_func, state3} = :luerl.encode(http_post_func, state2)
+          {encoded_json_decode_func, state4} = :luerl.encode(json_decode_func, state3)
+          {encoded_json_encode_func, state5} = :luerl.encode(json_encode_func, state4)
 
           # Now set the actual functions using the correct Luerl API
-          case :luerl.set_table_keys(["http", "get"], encoded_http_func, state3) do
-            {:ok, state4} ->
-              case :luerl.set_table_keys(["json", "decode"], encoded_json_func, state4) do
-                {:ok, final_state} -> final_state
-                {:error, _} -> state4
-              end
-            {:error, _} -> state3
+          with {:ok, state6} <- :luerl.set_table_keys(["http", "get"], encoded_http_get_func, state5),
+               {:ok, state7} <- :luerl.set_table_keys(["http", "post"], encoded_http_post_func, state6),
+               {:ok, state8} <- :luerl.set_table_keys(["json", "decode"], encoded_json_decode_func, state7),
+               {:ok, final_state} <- :luerl.set_table_keys(["json", "encode"], encoded_json_encode_func, state8) do
+            final_state
+          else
+            {:error, _} -> state5
           end
         {:error, _} -> state
       end
@@ -505,12 +571,18 @@ defmodule NetsukeAgents.LuaExecutor do
         http = {
           get = function(url)
             error("http.get is not yet implemented")
+          end,
+          post = function(url, options)
+            error("http.post is not yet implemented")
           end
         }
 
         json = {
           decode = function(json_string)
             error("json.decode is not yet implemented")
+          end,
+          encode = function(data)
+            error("json.encode is not yet implemented")
           end
         }
         """
