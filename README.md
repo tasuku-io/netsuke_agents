@@ -40,6 +40,32 @@ Setup OpenAI API key in .env:
 
 `OPENAI_API_KEY=your_openai_api_key`
 
+In `config/runtime.exs` add
+
+```elixir
+config :netsuke_agents,
+  allowed_hosts: System.get_env("ALLOWED_HOSTS"), # allowed hosts for Language Runtime execution
+  api_key: System.get_env("OPENAI_API_KEY")
+```
+
+Additionally to load environmet variables from .env manually
+
+```elixir
+if File.exists?(".env") do
+  File.read!(".env")
+  |> String.split("\n", trim: true)
+  |> Enum.reject(&String.starts_with?(&1, "#"))
+  |> Enum.each(fn line ->
+    case String.split(line, "=", parts: 2) do
+      [key, value] when key != "" and value != "" ->
+        System.put_env(key, value)
+      _ ->
+        :ok
+    end
+  end)
+end
+```
+
 ### Configuration
 
 If you want to use the built-in supervision tree and database functionality, add this to your application's supervision tree:
@@ -110,6 +136,10 @@ Netsuke Agents includes a secure **Language Runtime** system that allows agents 
 - **Security Model**: URL allowlists, timeout limits, and pattern detection
 
 ### Basic Language Runtime Usage
+
+Add allowed hosts in .env file, for example:
+
+`ALLOWED_HOSTS=jsonplaceholder.typicode.com,httpbin.org,api.github.com,pokeapi.co`
 
 ```elixir
 alias NetsukeAgents.LuaExecutor
